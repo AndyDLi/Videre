@@ -1,0 +1,4 @@
+# Markdown files
+tasks/
+*.md
+!README.md
