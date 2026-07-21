@@ -2,3 +2,4 @@
 tasks/
 *.md
 !README.md
+!docs/*.md
