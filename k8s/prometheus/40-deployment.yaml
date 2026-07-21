@@ -1,0 +1,80 @@
+# Single instance of Prometheus 3, connecting the RBAC, ConfigMap, and PVC.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: videre
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate    # recreate not rolling; keeps one instance mounted to the TSDB across a redeploy
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        app.kubernetes.io/name: prometheus
+        app.kubernetes.io/part-of: videre
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        runAsUser: 65534    # run as nobody to enforce principle of least privilege
+        runAsGroup: 65534
+        fsGroup: 65534      # allow writes to the PVC without higher privileges
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.13.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=3d
+            - --web.enable-lifecycle
+            - --web.listen-address=0.0.0.0:9090
+          ports:
+            - name: http
+              containerPort: 9090
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          startupProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: prometheus-data

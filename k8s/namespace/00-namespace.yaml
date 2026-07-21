@@ -1,0 +1,9 @@
+# Isolate the project in its own single namespace that holds every Videre workload.
+# Lets the ResourceQuota and LimitRange below bound the whole stack in one place.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: videre
+  labels:
+    app.kubernetes.io/part-of: videre

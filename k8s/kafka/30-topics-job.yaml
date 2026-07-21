@@ -1,0 +1,51 @@
+# One-shot Job that creates the four telemetry topics once the broker is reachable.
+# A Job runs until completion, then is garbage-collected after a TTL.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: videre
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/part-of: videre
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-topics
+          image: apache/kafka:4.3.1
+          env:
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx256m -Xms128m"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              BS=kafka.videre.svc.cluster.local:9092
+              echo "waiting for kafka at $BS ..."
+              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --list >/dev/null 2>&1; do
+                sleep 5
+              done
+              echo "kafka reachable; creating topics"
+              for t in node-events gpu-metrics job-events scheduler-events; do
+                /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" \
+                  --create --if-not-exists --topic "$t" \
+                  --partitions 3 --replication-factor 1 \
+                  --config retention.ms=259200000        # 3-day retention, per topic
+              done
+              echo "--- topics now present ---"
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --list
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

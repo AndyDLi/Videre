@@ -1,0 +1,18 @@
+# Internal, stable network address for the Prometheus UI/API and for Grafana to query as a data source.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: videre
+spec:
+  type: ClusterIP
+  selector:
+    app: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090

@@ -1,0 +1,22 @@
+# Headless Service for Kafka (no ClusterIP).
+# Communicate directly with the Kafka pod's own reachable IP address.
+# Kafka brokers are independent and responsible for particular topic partitions.
+# Connect to port 9092, publish an event, Kafka appends it to a partition's log.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: videre
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092

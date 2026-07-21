@@ -1,0 +1,18 @@
+# Internal, stable network address for Grafana.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: videre
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

@@ -1,0 +1,16 @@
+# Persistent storage for the Prometheus TSDB.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: videre
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 4Gi

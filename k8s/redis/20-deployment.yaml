@@ -1,0 +1,60 @@
+# Redis 8 — the shared cache + rate-limit store.
+# In-memory only: no PVC and persistence disabled.
+# Everything is either rebuildable (cache) or short-lived (rate-limit counters, AI response cache).
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: videre
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate    # recreate not rolling; keeps one instance mounted to the DB across a redeploy
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/part-of: videre
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.8.0-alpine
+          args:
+            - "--save"
+            - ""                      # disable RDB snapshots for no persistence
+            - "--appendonly"
+            - "no"                    # disable AOF for no persistence
+            - "--maxmemory"
+            - "200mb"                 # cap the dataset BELOW the container limit so Redis manages
+            - "--maxmemory-policy"
+            - "noeviction"            # refuse write rather than evicting data
+          ports:
+            - name: redis
+              containerPort: 6379
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi           # hard ceiling; sits above maxmemory (200mb) + overhead
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5

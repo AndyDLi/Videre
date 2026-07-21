@@ -1,0 +1,109 @@
+# Single-node Kafka 4 in KRaft mode, acting as both broker and controller.
+# A broker handles event streams between producers and consumers.
+# A controller manages metadata and coordination.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: videre
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate    # recreate not rolling; keeps one instance mounted to the log across a redeploy
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/part-of: videre
+    spec:
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: kafka
+          image: apache/kafka:4.3.1
+          ports:
+            - name: kafka
+              containerPort: 9092
+            - name: controller
+              containerPort: 9093
+          env:
+            # --- KRaft roles & identity ---
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@localhost:9093"
+            - name: CLUSTER_ID
+              value: "5L6g3nShT-eMCtK--X86sw"
+            # --- Listeners: clients on 9092, controller plane on 9093 ---
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka.videre.svc.cluster.local:9092"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            # --- One replica for one broker ---
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+              value: "1"
+            # --- Policy: no accidental topics, 3-day retention, fast group startup ---
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "false"
+            - name: KAFKA_LOG_RETENTION_MS
+              value: "259200000"
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx768m -Xms768m -XX:MaxDirectMemorySize=256m"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi          # covers the committed 768m heap and base overhead with headroom
+            limits:
+              cpu: "1"
+              memory: 1536Mi       # covers the committed heap and direct memory with headroom
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+          startupProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kafka-data
