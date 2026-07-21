@@ -3,3 +3,7 @@ tasks/
 *.md
 !README.md
 !docs/*.md
+
+# Rendered Kubernetes secrets
+k8s/**/secret.yaml
+k8s/**/*.secret.yaml

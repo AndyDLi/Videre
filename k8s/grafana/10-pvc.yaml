@@ -1,0 +1,16 @@
+# Persistent storage for Grafana's SQLite DB, storing local state (dashboards, users, alerts, etc).
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: videre
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

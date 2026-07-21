@@ -1,0 +1,17 @@
+# Persistent storage for Kafka's KRaft log directory (message logs + cluster metadata).
+# Survives pod restarts and recreations, as long as the PVC is not deleted.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-data
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: videre
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 4Gi

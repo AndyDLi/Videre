@@ -1,0 +1,18 @@
+# Cap Videre's aggregate resource requests, limits, and storage,
+# while leaving node capacity for Kubernetes and the host.
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: videre-quota
+  namespace: videre
+spec:
+  hard:
+    requests.cpu: "3"             # of 4 cores; 1 core left unreserved for system + bursts
+    requests.memory: 5Gi          # of ~7.8Gi; the whole idle stack is ~2.5-4Gi
+
+    # No aggregate limits.cpu on purpose: physical cap at 4 cores; no overcommit allowed
+    limits.memory: 6500Mi         # + kube-system limits still leaves ~1Gi node cushion
+
+    requests.storage: 16Gi        # within the ~20GB disk budget; 4Gi left for images and system usage
+    persistentvolumeclaims: "10"

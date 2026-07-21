@@ -1,0 +1,38 @@
+# Prometheus needs to authenticate to the Kubernetes API to scrape node metrics.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: videre
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole   # read-only; defined in rules below
+metadata:
+  name: videre-prometheus
+  labels:
+    app.kubernetes.io/part-of: videre
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "nodes/metrics", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding    # attach the role to the identity to grant the permissions
+metadata:
+  name: videre-prometheus
+  labels:
+    app.kubernetes.io/part-of: videre
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: videre-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: videre

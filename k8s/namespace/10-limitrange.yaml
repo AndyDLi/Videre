@@ -1,0 +1,21 @@
+# Apply safe per-container resource defaults in the videre namespace.
+# Pods without explicit resources satisfy the ResourceQuota.
+# Pods with explicit resources are unaffected.
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: videre-defaults
+  namespace: videre
+spec:
+  limits:
+    - type: Container
+      defaultRequest:   # container's default guaranteed requests limits when unset
+        cpu: 100m
+        memory: 128Mi
+      default:          # container's default maximum execution limits when unset
+        cpu: 500m
+        memory: 512Mi
+      max:              # hard max limits for a single container
+        cpu: "4"
+        memory: 3Gi

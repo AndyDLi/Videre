@@ -1,0 +1,17 @@
+# Persistent storage for PostgreSQL's data directory.
+# Survives pod restarts and recreations, as long as the PVC is not deleted.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: videre
+spec:
+  accessModes: ["ReadWriteOnce"]    # single pod can read/write; no concurrency; normal for single PostgreSQL instance
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi    # data older than 3 days is pruned; expect reatined data to be within 2Gi
