@@ -1,7 +1,5 @@
 """
 Unit tests for the core entity models.
-Each entity is tested by a JSON round-trip, defaults check, and its own validation rules.
-Framework-level behaviors shared by every model are tested once on a representative model.
 """
 
 import json
