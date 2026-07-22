@@ -13,6 +13,7 @@ from videre.models import Job, JobState, ResourceRequest
 
 from .cluster_state import ClusterState
 from .generators import GeneratedEvent, make_job_message
+from .materialization import Materializer
 
 
 class JobLifecycle:
@@ -22,10 +23,12 @@ class JobLifecycle:
         arrival_probability: float = 0.3,
         completion_probability: float = 0.2,
         random_generator: Random | None = None,
+        materializer: Materializer | None = None,
     ) -> None:
         self._arrival_probability = arrival_probability
         self._completion_probability = completion_probability
         self._random_generator = random_generator if random_generator is not None else Random()
+        self._materializer = materializer
         self._job_counter = 0
     
     def step(self, state: ClusterState) -> list[GeneratedEvent]:
@@ -35,11 +38,16 @@ class JobLifecycle:
             if self._random_generator.random() < self._completion_probability:
                 job.state = JobState.COMPLETED
                 job.finished_at = datetime.now(UTC)
+                if self._materializer is not None and job.pod_name is not None:
+                    self._materializer.signal_outcome(job.pod_name, "complete")
                 events.append(make_job_message("job.completed", str(uuid4()), job))
         
         for job in [job for job in state.jobs.values() if job.state is JobState.PENDING]:
+            node_id = self._random_generator.choice(state.node_ids())
+            job.assigned_node_ids = [node_id]
+            if self._materializer is not None:
+                job.pod_name = self._materializer.materialize(job, node_id)
             job.state = JobState.RUNNING
-            job.assigned_node_ids = [self._random_generator.choice(state.node_ids())]
             job.started_at = datetime.now(UTC)
             events.append(make_job_message("job.running", str(uuid4()), job))
         

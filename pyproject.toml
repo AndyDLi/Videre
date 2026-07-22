@@ -5,6 +5,7 @@ description = "Videre AI cluster operations and debugging console"
 requires-python = ">=3.12"
 dependencies = [
     "confluent-kafka>=2.15.0",
+    "kubernetes>=36.0.3",
     "pydantic>=2.9,<3",
 ]
 
@@ -40,4 +41,8 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = "confluent_kafka.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "kubernetes.*"
 ignore_missing_imports = true
