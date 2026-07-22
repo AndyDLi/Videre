@@ -12,10 +12,15 @@ from random import Random
 from typing import Protocol
 from uuid import uuid4
 
+from videre.events import Topic
+from videre.models import JobState
+
 from .cluster_state import build_cluster_state
-from .correlation import CorrelationEngine, EventTarget
+from .correlation import CorrelationEngine, EventTarget, ScheduledEvent
+from .event_types import EventType
 from .generators import GeneratedEvent, generate, make_gpu_message
 from .job_lifecycle import JobLifecycle
+from .materialization import Materializer
 
 logger = logging.getLogger("videre.simulator")
 
@@ -35,6 +40,7 @@ class Simulator:
         telemetry_interval_seconds: float = 10.0,
         baseline_failure_probability: float = 0.05,
         job_arrival_probability: float = 0.3,
+        materializer: Materializer | None = None,
     ) -> None:
         self._random_generator = random_generator if random_generator is not None else Random()
         self._state = build_cluster_state(node_count=node_count, gpus_per_node=gpus_per_node)
@@ -42,9 +48,11 @@ class Simulator:
             baseline_failure_probability=baseline_failure_probability,
             random_generator=self._random_generator,
         )
+        self._materializer = materializer
         self._job_lifecycle = JobLifecycle(
             arrival_probability=job_arrival_probability,
             random_generator=self._random_generator,
+            materializer=materializer,
         )
         self._telemetry_interval_seconds = telemetry_interval_seconds
         self._last_telemetry_at = float("-inf")
@@ -62,8 +70,11 @@ class Simulator:
         
         for scheduled_event in self._engine.fire_due(now):  # baseline and correlated failures
             generated_event = generate(self._state, scheduled_event, self._random_generator)
-            if generated_event is not None:
-                events.append(generated_event)
+            if generated_event is None:
+                continue
+            
+            events.append(generated_event)
+            self._reflect_failure(scheduled_event, generated_event)
         
         for event in events:
             publisher.publish(event)
@@ -81,3 +92,14 @@ class Simulator:
     
     def _gpu_telemetry(self) -> list[GeneratedEvent]:
         return [make_gpu_message("gpu.metric", str(uuid4()), gpu) for gpu in self._state.gpus.values()]
+    
+    def _reflect_failure(self, scheduled: ScheduledEvent, generated: GeneratedEvent) -> None:
+        if self._materializer is None or generated.topic is not Topic.JOB_EVENTS:
+            return
+        
+        job = self._state.jobs.get(generated.key)
+        if job is None or job.state is not JobState.FAILED or job.pod_name is None:
+            return
+        
+        outcome = "oom" if scheduled.event_type is EventType.JOB_OOM_KILL else "fail"
+        self._materializer.signal_outcome(job.pod_name, outcome)

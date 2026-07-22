@@ -1,0 +1,44 @@
+# Read docs/materialization.md for more information on the materialization process.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: videre-simulator
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: simulator
+    app.kubernetes.io/part-of: videre
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: videre-simulator
+  namespace: videre
+  labels:
+    app.kubernetes.io/part-of: videre
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: videre-simulator
+  namespace: videre
+  labels:
+    app.kubernetes.io/part-of: videre
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: videre-simulator
+subjects:
+  - kind: ServiceAccount
+    name: videre-simulator
+    namespace: videre
