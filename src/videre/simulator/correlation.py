@@ -1,0 +1,163 @@
+"""
+Discrete-event failure simulator.
+Produces abstract failure events.
+"""
+
+from __future__ import annotations
+
+import heapq
+from collections.abc import Iterable
+from dataclasses import dataclass
+from random import Random
+from uuid import uuid4
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .event_types import EventType
+
+
+@dataclass(frozen=True)
+class EventTarget:
+    node_id: str
+    gpu_id: str | None = None
+    job_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ScheduledEvent:
+    event_type: EventType
+    target: EventTarget
+    fire_at: float
+    correlation_id: str
+    depth: int
+
+
+class CorrelationRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
+    trigger: EventType
+    downstream: EventType
+    probability: float = Field(ge=0.0, le=1.0)
+    min_delay_seconds: float = Field(ge=0.0)
+    max_delay_seconds: float = Field(ge=0.0)
+    
+    @model_validator(mode="after")
+    def _delays_are_ordered(self) -> CorrelationRule:
+        if self.min_delay_seconds > self.max_delay_seconds:
+            raise ValueError("min_delay_seconds cannot exceed max_delay_seconds")
+        return self
+
+
+# Trigger events can probabilistically cause downstream events to occur within a time window.
+
+CORRELATION_RULES: list[CorrelationRule] = [
+    CorrelationRule(
+        trigger=EventType.GPU_THERMAL_THROTTLING,
+        downstream=EventType.JOB_NCCL_TIMEOUT,
+        probability=0.4,
+        min_delay_seconds=30.0,
+        max_delay_seconds=90.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.GPU_ECC_UNCORRECTABLE,
+        downstream=EventType.JOB_OOM_KILL,
+        probability=0.6,
+        min_delay_seconds=5.0,
+        max_delay_seconds=30.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_DISK_PRESSURE,
+        downstream=EventType.NODE_KUBELET_DOWN,
+        probability=0.3,
+        min_delay_seconds=20.0,
+        max_delay_seconds=60.0,
+    ),
+]
+
+
+# Relative likelihood of each event type occuring independently.
+
+BASELINE_FAILURE_WEIGHTS: dict[EventType, float] = {
+    EventType.GPU_THERMAL_THROTTLING: 5.0,
+    EventType.JOB_OOM_KILL: 4.0,
+    EventType.JOB_STRAGGLER: 3.0,
+    EventType.NODE_IMAGE_PULL_FAILURE: 2.0,
+    EventType.NODE_DISK_PRESSURE: 1.5,
+    EventType.GPU_XID_ERROR: 1.0,
+    EventType.GPU_ECC_UNCORRECTABLE: 0.5,
+    EventType.GPU_DRIVER_CRASH: 0.3,
+}
+
+
+class CorrelationEngine:
+    def __init__(
+        self,
+        *,
+        rules: Iterable[CorrelationRule] | None = None,
+        weights: dict[EventType, float] | None = None,
+        baseline_failure_probability: float = 0.05,
+        max_cascade_depth: int = 3,         # limits the chain of cause-and-effect events
+        max_fanout_per_event: int = 2,      # limits the number of immediate downstream events one event can create
+        random_generator: Random | None = None,
+    ) -> None:
+        self._rules_by_trigger: dict[EventType, list[CorrelationRule]] = {}
+        for rule in CORRELATION_RULES if rules is None else rules:
+            self._rules_by_trigger.setdefault(rule.trigger, []).append(rule)
+        self._weights = dict(BASELINE_FAILURE_WEIGHTS if weights is None else weights)
+        self._baseline_failure_probability = baseline_failure_probability
+        self._max_cascade_depth = max_cascade_depth
+        self._max_fanout_per_event = max_fanout_per_event
+        self._random = random_generator if random_generator is not None else Random()
+        self._heap: list[tuple[float, int, ScheduledEvent]] = []
+        self._sequence = 0
+    
+    def schedule(self, event: ScheduledEvent) -> None:
+        heapq.heappush(self._heap, (event.fire_at, self._sequence, event))
+        self._sequence += 1
+    
+    def maybe_emit_baseline(self, target: EventTarget, now: float) -> ScheduledEvent | None:
+        """Occasionally inject an uncorrelated failure event for a given target."""
+        
+        if self._random.random() >= self._baseline_failure_probability:
+            return None
+        
+        population = list(self._weights)
+        weights = [self._weights[event_type] for event_type in population]
+        event_type = self._random.choices(population, weights=weights, k=1)[0]
+        event = ScheduledEvent(event_type, target, now, str(uuid4()), depth=0)
+        self.schedule(event)
+        return event
+    
+    def fire_due(self, now: float) -> list[ScheduledEvent]:
+        fired: list[ScheduledEvent] = []
+        while self._heap and self._heap[0][0] <= now:
+            event = heapq.heappop(self._heap)[2]
+            fired.append(event)
+            self._spawn_correlated(event)
+        return fired
+    
+    def _spawn_correlated(self, event: ScheduledEvent) -> None:
+        if event.depth >= self._max_cascade_depth:
+            return
+        
+        fanout = 0
+        for rule in self._rules_by_trigger.get(event.event_type, ()):
+            if fanout >= self._max_fanout_per_event:
+                break
+            
+            if self._random.random() < rule.probability:
+                delay = self._random.uniform(rule.min_delay_seconds, rule.max_delay_seconds)
+                self.schedule(
+                    ScheduledEvent(
+                        event_type=rule.downstream,
+                        target=EventTarget(node_id=event.target.node_id),
+                        fire_at=event.fire_at + delay,
+                        correlation_id=event.correlation_id,
+                        depth=event.depth + 1,
+                    )
+                )
+                fanout += 1
+    
+    @property
+    def pending_count(self) -> int:
+        return len(self._heap)
