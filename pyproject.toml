@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Videre AI cluster operations and debugging console"
 requires-python = ">=3.12"
 dependencies = [
+    "confluent-kafka>=2.15.0",
     "pydantic>=2.9,<3",
 ]
 
@@ -36,3 +37,7 @@ python_version = "3.12"
 strict = true
 files = ["src"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "confluent_kafka.*"
+ignore_missing_imports = true
