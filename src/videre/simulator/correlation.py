@@ -72,6 +72,41 @@ CORRELATION_RULES: list[CorrelationRule] = [
         min_delay_seconds=20.0,
         max_delay_seconds=60.0,
     ),
+    CorrelationRule(
+        trigger=EventType.GPU_DRIVER_CRASH,
+        downstream=EventType.JOB_NCCL_TIMEOUT,
+        probability=0.7,
+        min_delay_seconds=1.0,
+        max_delay_seconds=10.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.GPU_NVLINK_DEGRADED,
+        downstream=EventType.JOB_NCCL_TIMEOUT,
+        probability=0.5,
+        min_delay_seconds=10.0,
+        max_delay_seconds=45.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.GPU_XID_ERROR,
+        downstream=EventType.GPU_DRIVER_CRASH,
+        probability=0.25,
+        min_delay_seconds=5.0,
+        max_delay_seconds=60.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_KUBELET_DOWN,
+        downstream=EventType.JOB_NCCL_TIMEOUT,
+        probability=0.5,
+        min_delay_seconds=5.0,
+        max_delay_seconds=20.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_DRAINED,
+        downstream=EventType.JOB_PREEMPTED,
+        probability=0.4,
+        min_delay_seconds=10.0,
+        max_delay_seconds=30.0,
+    ),
 ]
 
 
