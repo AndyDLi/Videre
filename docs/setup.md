@@ -6,7 +6,7 @@ This document captures the host configuration required to recreate the environme
 
 ## Availability Model
 
-Videre is intentionally available on-demand rather than continuously. The host follows normal sleep and shutdown behavior, and the public URL is reachable only while the machine is running. No permanent power-policy changes or always-on commitment are required.
+Videre is available on-demand and started manually. While the machine is on for normal daily use, the stack stays stopped and consumes no resources: k3s does not auto-start, and the WSL VM is not held up. The stack, and its public URL, are up only while a demo is explicitly running (see "Starting and Stopping the Demo").
 
 The recorded README walkthrough is the primary demonstration artifact. For planned extended availability, such as soak testing or recording a demo, temporarily suppress sleep: `presentationsettings /start`. Restore normal sleep behavior afterwards: `presentationsettings /stop`.
 
@@ -53,24 +53,32 @@ default=andyd
 - Apply operating-system updates manually with: `sudo apt update && sudo apt full-upgrade -y`.
 - Automatic security updates are also enabled through `unattended-upgrades`. In `/etc/apt/apt.conf.d/20auto-upgrades`, both `Update-Package-Lists` and `Unattended-Upgrade` are set to `"1"`.
 
-## Automatic WSL Startup
+## Manual Startup (WSL and k3s)
 
-The `Videre-WSL-Keepalive` Scheduled Task starts the Ubuntu distribution headlessly when the user logs in and keep the WSL VM active.
+To ensure Videre only runs when explicitly started, disable k2s auto-start:
 
-WSL can stop its VM after the last interactive Linux process exits, even when the systemd services remain configured. The task prevents this by maintaining a long-running `sleep infinity` process inside the distribution.
+  ```bash
+  sudo systemctl disable k3s
+  ```
 
-Recreate the task with:
+Opening the Ubuntu terminal will still boot the WSL VM on demand. While the lightweight `tailscaled` service auto-starts to maintain network connectivity, k3s and its workloads remain offline. This design ensures that following a Windows restart, the demo consumes no resources until manually launched.
 
-```powershell
-$action   = New-ScheduledTaskAction -Execute "conhost.exe" `
-            -Argument "--headless wsl.exe -d Ubuntu-24.04 --exec sleep infinity"
-$trigger  = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-            -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName "Videre-WSL-Keepalive" -Action $action -Trigger $trigger -Settings $settings
-```
+## Starting and Stopping the Demo
 
-The task runs only after the Windows user logs in because WSL operates as a per-user environment. Following an unattended Windows restart, Videre remains unavailable until the next user logon. This behavior is acceptable under the on-demand availability model
+Two helper scripts in `scripts/` directory manage the application lifecycle from within the cluster.
+
+- Startup (`demo-up.sh`): starts k3s, waits for core infrastructure to initialize, and scales the simulator to 1.
+- Shutdown (`demo-down.sh`): scales the simulator to 0, which triggers a SIGTERM handler that gracefully flushess in-flight Kafka events, before stopping k3s.
+
+**To Start the Demo:**
+
+1. Open the Ubuntu terminal to boot the WSL VM.
+2. Execute `cd ~/Videre && ./scripts/demo-up.sh`.
+
+**To Stop the Demo:**
+
+1. Execute `./scripts/demo-down.sh`.
+2. From Windows PowerShell, release the VM's memory: `wsl --shutdown`.
 
 ## Tailscale and Funnel
 

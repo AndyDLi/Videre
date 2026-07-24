@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/name: simulator
     app.kubernetes.io/part-of: videre
 spec:
-  replicas: 1
+  replicas: 0    # manual model; see docs/setup.md for more information
   strategy:
     type: Recreate    # recreate not rolling; avoids double-publishing during a redeploy
   selector:
