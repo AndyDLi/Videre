@@ -31,7 +31,7 @@ The simulator reaches into the idle Pod and injects a single command (`complete`
 To orchestrate this without compromising cluster security, the simulator is granted a highly scoped identity via a Kubernetes `ServiceAccount`, `Role`, and `RoleBinding`. We grant the exact permissions required to maintain the bridge, and nothing more:
 - `jobs` (`create`, `delete`, `get`, `list`, `watch`): To manage the representative workloads.
 - `pods` (`get`, `list`, `watch`): To monitor the physical state of the pods.
-- `pods/exec` (`create`): The critical permission allowing the simulator to inject the final state command.
+- `pods/exec` (`create`, `get`): The critical permissions allowing the simulator to inject the final state command.
 
 ---
 

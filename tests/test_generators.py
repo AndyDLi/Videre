@@ -12,7 +12,12 @@ from videre.models import (
     SchedulerEventType,
 )
 from videre.simulator.cluster_state import ClusterState, build_cluster_state
-from videre.simulator.correlation import EventTarget, ScheduledEvent
+from videre.simulator.correlation import (
+    BASELINE_FAILURE_WEIGHTS,
+    CORRELATION_RULES,
+    EventTarget,
+    ScheduledEvent,
+)
 from videre.simulator.event_types import EventType
 from videre.simulator.generators import GENERATORS, generate
 from videre.simulator.job_lifecycle import JobLifecycle
@@ -34,11 +39,21 @@ def state_with_running_job(node_id: str = "node-0") -> ClusterState:
     return state
 
 
-# --- Every event type has a generator ---
+# --- Event-level ---
 
 
 def test_every_event_type_has_a_generator() -> None:
     assert set(GENERATORS) == set(EventType)
+
+
+def test_every_event_type_has_a_positive_baseline_weight() -> None:
+    assert set(BASELINE_FAILURE_WEIGHTS) == set(EventType)
+    assert all(weight > 0.0 for weight in BASELINE_FAILURE_WEIGHTS.values())
+
+
+def test_every_correlation_rule_references_a_generator() -> None:
+    referenced = {event_type for rule in CORRELATION_RULES for event_type in (rule.trigger, rule.downstream)}
+    assert referenced <= set(GENERATORS)
 
 
 # --- Node-level ---
