@@ -2,7 +2,8 @@ import os
 import signal
 import threading
 
-from .logging_config import configure_logging
+from videre.logging_config import configure_logging
+
 from .materializer import KubernetesJobMaterializer
 from .publisher import KafkaEventPublisher
 from .simulation import Simulator
