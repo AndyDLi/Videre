@@ -18,10 +18,12 @@ from videre.models import JobState
 
 from .cluster_state import build_cluster_state
 from .correlation import CorrelationEngine, EventTarget, ScheduledEvent
-from .event_types import EventType
+from .event_types import EventType, LifecycleEventType
 from .generators import GeneratedEvent, generate, make_gpu_message
 from .job_lifecycle import JobLifecycle
 from .materialization import Materializer
+from .recovery import HealthRecovery
+from .telemetry import advance_gpu_telemetry
 
 logger = logging.getLogger("videre.simulator")
 
@@ -40,8 +42,10 @@ class Simulator:
         gpus_per_node: int = 8,
         telemetry_interval_seconds: float = 10.0,
         baseline_failure_probability: float = 0.05,
-        job_arrival_probability: float = 0.3,
-        job_completion_probability: float = 0.2,
+        job_arrival_probability: float = 0.2,
+        job_completion_probability: float = 0.05,
+        node_recovery_probability: float = 0.005,
+        gpu_recovery_probability: float = 0.01,
         materializer: Materializer | None = None,
     ) -> None:
         self._random_generator = random_generator if random_generator is not None else Random()
@@ -57,13 +61,19 @@ class Simulator:
             random_generator=self._random_generator,
             materializer=materializer,
         )
+        self._health_recovery = HealthRecovery(
+            node_recovery_probability=node_recovery_probability,
+            gpu_recovery_probability=gpu_recovery_probability,
+            random_generator=self._random_generator,
+        )
         self._telemetry_interval_seconds = telemetry_interval_seconds
         self._last_telemetry_at = float("-inf")
     
     def tick(self, publisher: Publisher, now: float) -> None:
         events: list[GeneratedEvent] = []
+        events.extend(self._health_recovery.step(self._state))  # unhealthy nodes/GPUs return to service
         events.extend(self._job_lifecycle.step(self._state))    # baseline job lifecycle events
-        
+
         if now - self._last_telemetry_at >= self._telemetry_interval_seconds:
             events.extend(self._gpu_telemetry())    # periodic GPU metrics
             self._last_telemetry_at = now
@@ -95,7 +105,11 @@ class Simulator:
             logger.info("simulator stopped and flushed")
     
     def _gpu_telemetry(self) -> list[GeneratedEvent]:
-        return [make_gpu_message("gpu.metric", str(uuid4()), gpu) for gpu in self._state.gpus.values()]
+        advance_gpu_telemetry(self._state, self._random_generator)
+        return [
+            make_gpu_message(LifecycleEventType.GPU_METRIC.value, str(uuid4()), gpu)
+            for gpu in self._state.gpus.values()
+        ]
     
     def _reflect_failure(self, scheduled: ScheduledEvent, generated: GeneratedEvent) -> None:
         if self._materializer is None or generated.topic is not Topic.JOB_EVENTS:

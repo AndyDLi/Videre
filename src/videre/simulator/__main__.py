@@ -16,15 +16,17 @@ def main() -> None:
         bootstrap_servers=environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka.videre.svc.cluster.local:9092")
     )
     materializer = KubernetesJobMaterializer(
-        ttl_seconds_after_finished=int(environ.get("MATERIALIZED_JOB_TTL_SECONDS", "300"))
+        ttl_seconds_after_finished=int(environ.get("MATERIALIZED_JOB_TTL_SECONDS", "120"))
     )
     simulator = Simulator(
         node_count=int(environ.get("NODE_COUNT", "4")),
         gpus_per_node=int(environ.get("GPUS_PER_NODE", "8")),
         telemetry_interval_seconds=float(environ.get("TELEMETRY_INTERVAL_SECONDS", "10")),
         baseline_failure_probability=float(environ.get("BASELINE_FAILURE_PROBABILITY", "0.05")),
-        job_arrival_probability=float(environ.get("JOB_ARRIVAL_PROBABILITY", "0.3")),
-        job_completion_probability=float(environ.get("JOB_COMPLETION_PROBABILITY", "0.2")),
+        job_arrival_probability=float(environ.get("JOB_ARRIVAL_PROBABILITY", "0.2")),
+        job_completion_probability=float(environ.get("JOB_COMPLETION_PROBABILITY", "0.05")),
+        node_recovery_probability=float(environ.get("NODE_RECOVERY_PROBABILITY", "0.005")),
+        gpu_recovery_probability=float(environ.get("GPU_RECOVERY_PROBABILITY", "0.01")),
         materializer=materializer,
     )
     

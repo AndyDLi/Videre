@@ -24,7 +24,7 @@ def test_build_materialized_job_carries_simulated_labels_and_caps() -> None:
     assert job.metadata.labels[SIMULATED_NODE_LABEL] == "node-2"
     assert job.metadata.labels[MATERIALIZED_LABEL] == "true"
     assert job.spec.backoff_limit == 0
-    assert job.spec.ttl_seconds_after_finished == 300
+    assert job.spec.ttl_seconds_after_finished == 120
     assert job.spec.active_deadline_seconds == 120
     container = job.spec.template.spec.containers[0]
     assert container.resources.limits["memory"] == "32Mi"

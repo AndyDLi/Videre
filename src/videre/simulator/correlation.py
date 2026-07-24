@@ -51,6 +51,7 @@ class CorrelationRule(BaseModel):
 # Trigger events can probabilistically cause downstream events to occur within a time window.
 
 CORRELATION_RULES: list[CorrelationRule] = [
+    # GPU -> Job
     CorrelationRule(
         trigger=EventType.GPU_THERMAL_THROTTLING,
         downstream=EventType.JOB_NCCL_TIMEOUT,
@@ -59,18 +60,18 @@ CORRELATION_RULES: list[CorrelationRule] = [
         max_delay_seconds=90.0,
     ),
     CorrelationRule(
+        trigger=EventType.GPU_THERMAL_THROTTLING,
+        downstream=EventType.JOB_STRAGGLER,
+        probability=0.35,
+        min_delay_seconds=15.0,
+        max_delay_seconds=60.0,
+    ),
+    CorrelationRule(
         trigger=EventType.GPU_ECC_UNCORRECTABLE,
         downstream=EventType.JOB_OOM_KILL,
         probability=0.6,
         min_delay_seconds=5.0,
         max_delay_seconds=30.0,
-    ),
-    CorrelationRule(
-        trigger=EventType.NODE_DISK_PRESSURE,
-        downstream=EventType.NODE_KUBELET_DOWN,
-        probability=0.3,
-        min_delay_seconds=20.0,
-        max_delay_seconds=60.0,
     ),
     CorrelationRule(
         trigger=EventType.GPU_DRIVER_CRASH,
@@ -86,6 +87,15 @@ CORRELATION_RULES: list[CorrelationRule] = [
         min_delay_seconds=10.0,
         max_delay_seconds=45.0,
     ),
+
+    # GPU -> GPU
+    CorrelationRule(
+        trigger=EventType.GPU_ECC_UNCORRECTABLE,
+        downstream=EventType.GPU_XID_ERROR,
+        probability=0.3,
+        min_delay_seconds=5.0,
+        max_delay_seconds=45.0,
+    ),
     CorrelationRule(
         trigger=EventType.GPU_XID_ERROR,
         downstream=EventType.GPU_DRIVER_CRASH,
@@ -93,6 +103,24 @@ CORRELATION_RULES: list[CorrelationRule] = [
         min_delay_seconds=5.0,
         max_delay_seconds=60.0,
     ),
+
+    # Node -> Node
+    CorrelationRule(
+        trigger=EventType.NODE_DISK_PRESSURE,
+        downstream=EventType.NODE_KUBELET_DOWN,
+        probability=0.3,
+        min_delay_seconds=20.0,
+        max_delay_seconds=60.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_KUBELET_DOWN,
+        downstream=EventType.NODE_HEALTH_CHECK_REMOVED,
+        probability=0.3,
+        min_delay_seconds=60.0,
+        max_delay_seconds=180.0,
+    ),
+
+    # Node -> Job
     CorrelationRule(
         trigger=EventType.NODE_KUBELET_DOWN,
         downstream=EventType.JOB_NCCL_TIMEOUT,
@@ -101,11 +129,57 @@ CORRELATION_RULES: list[CorrelationRule] = [
         max_delay_seconds=20.0,
     ),
     CorrelationRule(
+        trigger=EventType.NODE_CNI_FAILURE,
+        downstream=EventType.JOB_NCCL_TIMEOUT,
+        probability=0.55,
+        min_delay_seconds=5.0,
+        max_delay_seconds=30.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_DISK_PRESSURE,
+        downstream=EventType.JOB_CHECKPOINT_CORRUPT,
+        probability=0.35,
+        min_delay_seconds=10.0,
+        max_delay_seconds=40.0,
+    ),
+    CorrelationRule(
         trigger=EventType.NODE_DRAINED,
         downstream=EventType.JOB_PREEMPTED,
         probability=0.4,
         min_delay_seconds=10.0,
         max_delay_seconds=30.0,
+    ),
+
+    # Node -> Capacity
+    CorrelationRule(
+        trigger=EventType.NODE_DRAINED,
+        downstream=EventType.CAPACITY_RESERVED_IDLE,
+        probability=0.5,
+        min_delay_seconds=30.0,
+        max_delay_seconds=120.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_HEALTH_CHECK_REMOVED,
+        downstream=EventType.CAPACITY_FRAGMENTATION,
+        probability=0.5,
+        min_delay_seconds=5.0,
+        max_delay_seconds=45.0,
+    ),
+    CorrelationRule(
+        trigger=EventType.NODE_UNTOLERATED_TAINT,
+        downstream=EventType.CAPACITY_FRAGMENTATION,
+        probability=0.4,
+        min_delay_seconds=10.0,
+        max_delay_seconds=60.0,
+    ),
+
+    # Capacity -> Job
+    CorrelationRule(
+        trigger=EventType.CAPACITY_FRAGMENTATION,
+        downstream=EventType.JOB_PREEMPTED,
+        probability=0.25,
+        min_delay_seconds=20.0,
+        max_delay_seconds=90.0,
     ),
 ]
 

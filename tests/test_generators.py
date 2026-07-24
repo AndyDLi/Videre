@@ -198,3 +198,27 @@ def test_job_lifecycle_creates_then_completes_jobs() -> None:
     for _ in range(5):
         lifecycle.step(state)
     assert any(job.state is JobState.COMPLETED for job in state.jobs.values())
+
+
+def test_jobs_are_only_placed_on_ready_nodes() -> None:
+    state = build_cluster_state()
+    for node_id, node in state.nodes.items():
+        if node_id != "node-0":
+            node.health_state = NodeHealthState.NOT_READY
+    lifecycle = JobLifecycle(arrival_probability=1.0, random_generator=Random(0))
+    for _ in range(10):
+        lifecycle.step(state)
+    running = [job for job in state.jobs.values() if job.state is JobState.RUNNING]
+    assert running
+    assert all(job.assigned_node_ids == ["node-0"] for job in running)
+
+
+def test_jobs_stay_pending_when_no_node_is_ready() -> None:
+    state = build_cluster_state()
+    for node in state.nodes.values():
+        node.health_state = NodeHealthState.NOT_READY
+    lifecycle = JobLifecycle(arrival_probability=1.0, random_generator=Random(0))
+    for _ in range(5):
+        lifecycle.step(state)
+    assert state.jobs
+    assert all(job.state is JobState.PENDING for job in state.jobs.values())
