@@ -7,9 +7,13 @@ dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "confluent-kafka>=2.15.0",
+    "fastapi>=0.140.0",
     "kubernetes>=36.0.3",
     "pydantic>=2.9,<3",
+    "pydantic-settings>=2.14.2",
+    "redis>=8.0.1",
     "sqlalchemy[asyncio]>=2.0",
+    "uvicorn[standard]>=0.51.0",
 ]
 
 [build-system]
@@ -21,6 +25,7 @@ packages = ["src/videre"]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.9.1",
     "mypy>=1.11",
     "pytest>=8",
     "ruff>=0.6",
