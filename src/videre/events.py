@@ -26,6 +26,7 @@ class Topic(StrEnum):
 class EventMessage[PayloadT: BaseModel](BaseModel):
     model_config = ConfigDict(extra="forbid")
     
+    event_id: str = Field(default_factory=lambda: str(uuid4()))    # unique per message; idempotent key for consumers
     event_type: str
     schema_version: int = SCHEMA_VERSION
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))

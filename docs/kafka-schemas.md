@@ -8,6 +8,7 @@ The Pydantic models in `src/videre/events.py` define the shared wire contract. B
 
 | Field | Type | Purpose |
 |---|---|---|
+| `event_id` | UUID string | Unique per message; the consumer's idempotency key. |
 | `event_type` | string | Specific event identifier in `"<domain>.<event>"` form, such as `gpu.thermal_throttling`. |
 | `schema_version` | int | Version of the message contract, incremented on breaking schema changes. |
 | `timestamp` | ISO-8601 UTC | Time the producer created the message. |
