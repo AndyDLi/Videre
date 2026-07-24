@@ -1,12 +1,15 @@
 [project]
 name = "videre"
-version = "0.3.0"
+version = "0.4.0"
 description = "Videre AI cluster operations and debugging console"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.5",
+    "asyncpg>=0.31.0",
     "confluent-kafka>=2.15.0",
     "kubernetes>=36.0.3",
     "pydantic>=2.9,<3",
+    "sqlalchemy[asyncio]>=2.0",
 ]
 
 [build-system]
@@ -29,6 +32,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 120
 src = ["src", "tests"]
+extend-exclude = ["alembic"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

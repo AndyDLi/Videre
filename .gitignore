@@ -4,6 +4,9 @@ tasks/
 !README.md
 !docs/*.md
 
+# Environment variables
+.env
+
 # Rendered Kubernetes secrets
 k8s/**/secret.yaml
 k8s/**/*.secret.yaml

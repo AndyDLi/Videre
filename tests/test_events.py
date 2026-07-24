@@ -102,6 +102,19 @@ def test_extra_envelope_fields_forbidden() -> None:
         NodeEventMessage(event_type="node.ready", payload=sample_node(), bogus="x")
 
 
+def test_event_id_is_unique_per_message() -> None:
+    first = NodeEventMessage(event_type="node.kubelet_down", payload=sample_node())
+    second = NodeEventMessage(event_type="node.kubelet_down", payload=sample_node())
+    assert first.event_id != second.event_id
+
+
+def test_event_id_is_independent_of_correlation_id() -> None:
+    cascade = "cascade-1"
+    trigger = NodeEventMessage(event_type="node.disk_pressure", correlation_id=cascade, payload=sample_node())
+    downstream = JobEventMessage(event_type="job.nccl_timeout", correlation_id=cascade, payload=sample_job())
+    assert trigger.correlation_id == downstream.correlation_id
+    assert trigger.event_id != downstream.event_id
+
 # --- Partition keys ---
 
 
