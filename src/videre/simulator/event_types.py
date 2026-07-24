@@ -1,6 +1,7 @@
 """
-Failure-mode taxonomy of simulated event types.
-These are the values the envelope's `event_type` carries.
+Taxonomy of simulated event types: the values the envelope's `event_type` carries.
+`EventType` covers the failure modes the correlation engine schedules and the generators produce;
+`LifecycleEventType` covers routine telemetry, lifecycle and recovery.
 """
 
 from enum import StrEnum
@@ -33,3 +34,14 @@ class EventType(StrEnum):
     NODE_DRAINED = "node.drained"
     CAPACITY_RESERVED_IDLE = "capacity.reserved_idle"
     NODE_HEALTH_CHECK_REMOVED = "node.health_check_removed"
+
+
+class LifecycleEventType(StrEnum):
+    GPU_METRIC = "gpu.metric"
+
+    JOB_PENDING = "job.pending"
+    JOB_RUNNING = "job.running"
+    JOB_COMPLETED = "job.completed"
+
+    NODE_RECOVERED = "node.recovered"
+    GPU_RECOVERED = "gpu.recovered"

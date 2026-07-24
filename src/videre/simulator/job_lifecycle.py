@@ -13,6 +13,7 @@ from uuid import uuid4
 from videre.models import Job, JobState, ResourceRequest
 
 from .cluster_state import ClusterState
+from .event_types import LifecycleEventType
 from .generators import GeneratedEvent, make_job_message
 from .materialization import Materializer
 
@@ -23,8 +24,8 @@ class JobLifecycle:
     def __init__(
         self,
         *,
-        arrival_probability: float = 0.3,
-        completion_probability: float = 0.2,
+        arrival_probability: float = 0.2,
+        completion_probability: float = 0.05,
         random_generator: Random | None = None,
         materializer: Materializer | None = None,
     ) -> None:
@@ -44,16 +45,19 @@ class JobLifecycle:
                 job.finished_at = datetime.now(UTC)
                 if self._materializer is not None and job.pod_name is not None:
                     self._materializer.signal_outcome(job.pod_name, "complete")
-                events.append(make_job_message("job.completed", str(uuid4()), job))
-        
+                events.append(make_job_message(LifecycleEventType.JOB_COMPLETED.value, str(uuid4()), job))
+
+        schedulable = state.schedulable_node_ids()
         for job in [job for job in state.jobs.values() if job.state is JobState.PENDING]:
-            node_id = self._random_generator.choice(state.node_ids())
+            if not schedulable:
+                break
+            node_id = self._random_generator.choice(schedulable)
             job.assigned_node_ids = [node_id]
             job.pod_name = self._materialize(job, node_id)
             job.state = JobState.RUNNING
             job.started_at = datetime.now(UTC)
-            events.append(make_job_message("job.running", str(uuid4()), job))
-        
+            events.append(make_job_message(LifecycleEventType.JOB_RUNNING.value, str(uuid4()), job))
+
         if self._random_generator.random() < self._arrival_probability:
             events.append(self._create_job(state))
         return events
@@ -77,4 +81,4 @@ class JobLifecycle:
             resources=ResourceRequest(cpu_cores=8, memory_gb=64, gpu_count=1),
         )
         state.jobs[job.id] = job
-        return make_job_message("job.pending", str(uuid4()), job)
+        return make_job_message(LifecycleEventType.JOB_PENDING.value, str(uuid4()), job)

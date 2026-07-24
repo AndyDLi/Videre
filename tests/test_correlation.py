@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from videre.simulator.correlation import (
+    CORRELATION_RULES,
     CorrelationEngine,
     CorrelationRule,
     EventTarget,
@@ -16,6 +17,48 @@ from videre.simulator.event_types import EventType
 def make_engine(**overrides) -> CorrelationEngine:
     defaults = {"random_generator": Random(42), "baseline_failure_probability": 1.0}
     return CorrelationEngine(**{**defaults, **overrides})
+
+
+def _domain(event_type: EventType) -> str:
+    capacity = {
+        EventType.CAPACITY_FRAGMENTATION,
+        EventType.CAPACITY_RESERVED_IDLE,
+        EventType.NODE_DRAINED,
+        EventType.NODE_HEALTH_CHECK_REMOVED,
+    }
+    if event_type in capacity:
+        return "capacity"
+    return event_type.value.split(".", 1)[0]
+
+
+# --- Rule table is comprehensive and varied ---
+
+
+def test_no_duplicate_trigger_downstream_pairs() -> None:
+    pairs = [(rule.trigger, rule.downstream) for rule in CORRELATION_RULES]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_no_rule_triggers_itself() -> None:
+    assert all(rule.trigger is not rule.downstream for rule in CORRELATION_RULES)
+
+
+def test_rules_span_every_source_domain() -> None:
+    trigger_domains = {_domain(rule.trigger) for rule in CORRELATION_RULES}
+    assert trigger_domains == {"gpu", "node", "capacity"}
+
+
+def test_rules_cover_the_intended_cross_domain_transitions() -> None:
+    transitions = {(_domain(rule.trigger), _domain(rule.downstream)) for rule in CORRELATION_RULES}
+    for expected in [("gpu", "job"), ("gpu", "gpu"), ("node", "node"), ("node", "job"),
+                     ("node", "capacity"), ("capacity", "job")]:
+        assert expected in transitions
+
+
+def test_multi_hop_cascade_is_possible() -> None:
+    triggers = {rule.trigger for rule in CORRELATION_RULES}
+    downstreams = {rule.downstream for rule in CORRELATION_RULES}
+    assert triggers & downstreams
 
 
 # --- Weighted baseline ---
