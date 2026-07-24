@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from pathlib import Path
 from random import Random
 from typing import Protocol
 from uuid import uuid4
@@ -40,6 +41,7 @@ class Simulator:
         telemetry_interval_seconds: float = 10.0,
         baseline_failure_probability: float = 0.05,
         job_arrival_probability: float = 0.3,
+        job_completion_probability: float = 0.2,
         materializer: Materializer | None = None,
     ) -> None:
         self._random_generator = random_generator if random_generator is not None else Random()
@@ -51,6 +53,7 @@ class Simulator:
         self._materializer = materializer
         self._job_lifecycle = JobLifecycle(
             arrival_probability=job_arrival_probability,
+            completion_probability=job_completion_probability,
             random_generator=self._random_generator,
             materializer=materializer,
         )
@@ -85,6 +88,7 @@ class Simulator:
         try:
             while not stop_event.is_set():
                 self.tick(publisher, now=time.monotonic() - start)
+                Path("/tmp/heartbeat").touch()
                 stop_event.wait(tick_interval_seconds)
         finally:
             publisher.flush()

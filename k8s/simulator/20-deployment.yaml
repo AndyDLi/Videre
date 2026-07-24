@@ -1,0 +1,44 @@
+# The simulator, deployed in-cluster.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: simulator
+    app.kubernetes.io/part-of: videre
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate    # recreate not rolling; avoids double-publishing during a redeploy
+  selector:
+    matchLabels:
+      app: simulator
+  template:
+    metadata:
+      labels:
+        app: simulator
+        app.kubernetes.io/name: simulator
+        app.kubernetes.io/part-of: videre
+    spec:
+      serviceAccountName: videre-simulator
+      containers:
+        - name: simulator
+          image: ghcr.io/andydli/videre-simulator:0.2.0
+          envFrom:
+            - configMapRef:
+                name: simulator-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 60"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3

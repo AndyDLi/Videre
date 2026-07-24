@@ -110,17 +110,35 @@ CORRELATION_RULES: list[CorrelationRule] = [
 ]
 
 
-# Relative likelihood of each event type occuring independently.
+# Relative likelihood of each event type occurring independently: any failure mode can start a cascade.
 
 BASELINE_FAILURE_WEIGHTS: dict[EventType, float] = {
-    EventType.GPU_THERMAL_THROTTLING: 5.0,
-    EventType.JOB_OOM_KILL: 4.0,
-    EventType.JOB_STRAGGLER: 3.0,
+    # Node-level
+    EventType.NODE_KUBELET_DOWN: 0.5,
+    EventType.NODE_UNTOLERATED_TAINT: 0.6,
     EventType.NODE_IMAGE_PULL_FAILURE: 2.0,
+    EventType.NODE_CNI_FAILURE: 0.8,
     EventType.NODE_DISK_PRESSURE: 1.5,
-    EventType.GPU_XID_ERROR: 1.0,
+
+    # GPU-level
+    EventType.GPU_THERMAL_THROTTLING: 5.0,
     EventType.GPU_ECC_UNCORRECTABLE: 0.5,
+    EventType.GPU_XID_ERROR: 1.0,
+    EventType.GPU_NVLINK_DEGRADED: 0.6,
     EventType.GPU_DRIVER_CRASH: 0.3,
+
+    # Job-level
+    EventType.JOB_OOM_KILL: 4.0,
+    EventType.JOB_NCCL_TIMEOUT: 0.5,
+    EventType.JOB_STRAGGLER: 3.0,
+    EventType.JOB_CHECKPOINT_CORRUPT: 0.4,
+    EventType.JOB_PREEMPTED: 2.0,
+
+    # Capacity-level
+    EventType.CAPACITY_FRAGMENTATION: 1.0,
+    EventType.NODE_DRAINED: 0.5,
+    EventType.CAPACITY_RESERVED_IDLE: 0.8,
+    EventType.NODE_HEALTH_CHECK_REMOVED: 0.2,
 }
 
 

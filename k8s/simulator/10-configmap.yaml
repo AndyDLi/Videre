@@ -1,0 +1,20 @@
+# Externalized simulator config.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simulator-config
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: simulator
+    app.kubernetes.io/part-of: videre
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.videre.svc.cluster.local:9092"
+  TICK_INTERVAL_SECONDS: "1"
+  TELEMETRY_INTERVAL_SECONDS: "10"
+  BASELINE_FAILURE_PROBABILITY: "0.05"
+  JOB_ARRIVAL_PROBABILITY: "0.2"
+  JOB_COMPLETION_PROBABILITY: "0.05"
+  MATERIALIZED_JOB_TTL_SECONDS: "120"
+  NODE_COUNT: "4"
+  GPUS_PER_NODE: "8"
