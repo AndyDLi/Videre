@@ -37,6 +37,7 @@ class EventType(StrEnum):
 
 
 class LifecycleEventType(StrEnum):
+    NODE_STATE = "node.state"
     GPU_METRIC = "gpu.metric"
 
     JOB_PENDING = "job.pending"

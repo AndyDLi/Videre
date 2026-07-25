@@ -1,10 +1,10 @@
 from random import Random
 
+from videre.event_types import EventType, LifecycleEventType
 from videre.events import Topic
 from videre.models import GpuHealthState, NodeHealthState
 from videre.simulator.cluster_state import build_cluster_state
 from videre.simulator.correlation import EventTarget, ScheduledEvent
-from videre.simulator.event_types import EventType, LifecycleEventType
 from videre.simulator.generators import generate
 from videre.simulator.recovery import IDLE_TEMPERATURE_CELSIUS, HealthRecovery
 

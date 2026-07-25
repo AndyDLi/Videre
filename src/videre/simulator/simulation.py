@@ -13,13 +13,13 @@ from random import Random
 from typing import Protocol
 from uuid import uuid4
 
+from videre.event_types import EventType, LifecycleEventType
 from videre.events import Topic
 from videre.models import JobState
 
 from .cluster_state import build_cluster_state
 from .correlation import CorrelationEngine, EventTarget, ScheduledEvent
-from .event_types import EventType, LifecycleEventType
-from .generators import GeneratedEvent, generate, make_gpu_message
+from .generators import GeneratedEvent, generate, make_gpu_message, make_node_message
 from .job_lifecycle import JobLifecycle
 from .materialization import Materializer
 from .recovery import HealthRecovery
@@ -75,6 +75,7 @@ class Simulator:
         events.extend(self._job_lifecycle.step(self._state))    # baseline job lifecycle events
 
         if now - self._last_telemetry_at >= self._telemetry_interval_seconds:
+            events.extend(self._node_telemetry())   # periodic node state
             events.extend(self._gpu_telemetry())    # periodic GPU metrics
             self._last_telemetry_at = now
         
@@ -104,6 +105,12 @@ class Simulator:
             publisher.flush()
             logger.info("simulator stopped and flushed")
     
+    def _node_telemetry(self) -> list[GeneratedEvent]:
+        return [
+            make_node_message(LifecycleEventType.NODE_STATE.value, str(uuid4()), node)
+            for node in self._state.nodes.values()
+        ]
+
     def _gpu_telemetry(self) -> list[GeneratedEvent]:
         advance_gpu_telemetry(self._state, self._random_generator)
         return [

@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .event_types import EventType
+from videre.event_types import EventType
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,7 @@ from random import Random
 import pytest
 from pydantic import ValidationError
 
+from videre.event_types import EventType
 from videre.simulator.correlation import (
     CORRELATION_RULES,
     CorrelationEngine,
@@ -11,7 +12,6 @@ from videre.simulator.correlation import (
     EventTarget,
     ScheduledEvent,
 )
-from videre.simulator.event_types import EventType
 
 
 def make_engine(**overrides) -> CorrelationEngine:

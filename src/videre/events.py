@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,7 +41,7 @@ JobEventMessage = EventMessage[Job]
 SchedulerEventMessage = EventMessage[SchedulerEvent]
 
 
-TOPIC_MESSAGE_TYPES: dict[Topic, type[BaseModel]] = {
+TOPIC_MESSAGE_TYPES: dict[Topic, type[EventMessage[Any]]] = {
     Topic.NODE_EVENTS: NodeEventMessage,
     Topic.GPU_METRICS: GpuMetricMessage,
     Topic.JOB_EVENTS: JobEventMessage,

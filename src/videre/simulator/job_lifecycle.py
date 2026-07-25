@@ -10,10 +10,10 @@ from datetime import UTC, datetime
 from random import Random
 from uuid import uuid4
 
+from videre.event_types import LifecycleEventType
 from videre.models import Job, JobState, ResourceRequest
 
 from .cluster_state import ClusterState
-from .event_types import LifecycleEventType
 from .generators import GeneratedEvent, make_job_message
 from .materialization import Materializer
 
