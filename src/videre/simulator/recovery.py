@@ -7,10 +7,10 @@ from __future__ import annotations
 from random import Random
 from uuid import uuid4
 
+from videre.event_types import LifecycleEventType
 from videre.models import GpuHealthState, NodeHealthState
 
 from .cluster_state import ClusterState
-from .event_types import LifecycleEventType
 from .generators import GeneratedEvent, make_gpu_message, make_node_message
 from .telemetry import IDLE_TEMPERATURE_CELSIUS
 

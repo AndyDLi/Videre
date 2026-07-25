@@ -6,11 +6,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from random import Random
 from uuid import uuid4
 
 from pydantic import BaseModel
 
+from videre.event_types import EventType
 from videre.events import (
     GpuMetricMessage,
     JobEventMessage,
@@ -31,7 +33,6 @@ from videre.models import (
 
 from .cluster_state import ClusterState
 from .correlation import ScheduledEvent
-from .event_types import EventType
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,7 @@ def generate_job_failure(
         return None
     job.state = JobState.FAILED
     job.failure_reason = _JOB_FAILURE_REASONS[event.event_type]
+    job.finished_at = datetime.now(UTC)
     return make_job_message(event.event_type.value, event.correlation_id, job)
 
 

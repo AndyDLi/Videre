@@ -2,6 +2,7 @@ from random import Random
 
 import pytest
 
+from videre.event_types import EventType
 from videre.events import Topic
 from videre.models import (
     GpuHealthState,
@@ -18,7 +19,6 @@ from videre.simulator.correlation import (
     EventTarget,
     ScheduledEvent,
 )
-from videre.simulator.event_types import EventType
 from videre.simulator.generators import GENERATORS, generate
 from videre.simulator.job_lifecycle import JobLifecycle
 
@@ -222,3 +222,10 @@ def test_jobs_stay_pending_when_no_node_is_ready() -> None:
         lifecycle.step(state)
     assert state.jobs
     assert all(job.state is JobState.PENDING for job in state.jobs.values())
+
+
+def test_failed_job_records_a_finish_time() -> None:
+    state = state_with_running_job()
+    generate(state, fired_event(EventType.JOB_OOM_KILL), Random(0))
+    assert state.jobs["job-1"].state is JobState.FAILED
+    assert state.jobs["job-1"].finished_at is not None   # a terminal state always carries a time

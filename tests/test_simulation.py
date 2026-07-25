@@ -1,6 +1,7 @@
 from random import Random
 from threading import Event
 
+from videre.event_types import LifecycleEventType
 from videre.events import Topic
 from videre.simulator.generators import GeneratedEvent
 from videre.simulator.simulation import Simulator
@@ -48,3 +49,34 @@ def test_run_flushes_on_stop() -> None:
     stop_event.set()
     simulator.run(publisher, stop_event=stop_event, tick_interval_seconds=0.0)
     assert publisher.flushed
+
+
+def test_tick_emits_node_state_periodically() -> None:
+    # without this a consumer joining mid-stream never learns a healthy node's capacity, since
+    # nodes otherwise publish only on failure or recovery
+    simulator = Simulator(random_generator=Random(0), node_count=4, telemetry_interval_seconds=0.0)
+    publisher = FakePublisher()
+    simulator.tick(publisher, now=0.0)
+
+    node_states = [
+        event for event in publisher.published
+        if event.topic is Topic.NODE_EVENTS
+        and event.message.event_type == LifecycleEventType.NODE_STATE.value
+    ]
+    assert len(node_states) == 4                                  # every node, every interval
+    payload = node_states[0].message.payload
+    assert payload.cpu_cores > 0 and payload.cluster_id           # carries real capacity, not a stub
+
+
+def test_node_state_is_not_emitted_between_telemetry_intervals() -> None:
+    simulator = Simulator(random_generator=Random(0), telemetry_interval_seconds=1000.0)
+    publisher = FakePublisher()
+    simulator.tick(publisher, now=0.0)     # first tick always emits
+    published_after_first = len(publisher.published)
+    simulator.tick(publisher, now=1.0)     # well inside the interval
+
+    emitted = [
+        event for event in publisher.published[published_after_first:]
+        if event.message.event_type == LifecycleEventType.NODE_STATE.value
+    ]
+    assert emitted == []

@@ -1,9 +1,10 @@
 [project]
 name = "videre"
-version = "0.4.0"
+version = "0.5.0"
 description = "Videre AI cluster operations and debugging console"
 requires-python = ">=3.12"
 dependencies = [
+    "aiokafka[lz4]>=0.14.0",
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "confluent-kafka>=2.15.0",
@@ -28,11 +29,13 @@ dev = [
     "httpx2>=2.9.1",
     "mypy>=1.11",
     "pytest>=8",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.6",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 120
@@ -54,4 +57,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "kubernetes.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "aiokafka.*"
 ignore_missing_imports = true
