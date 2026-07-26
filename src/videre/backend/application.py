@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from videre.logging_config import configure_logging
 
+from .cache.refresh import run_cache_refresh
 from .dependencies import create_engine, create_redis_client
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
@@ -32,10 +33,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis_client = create_redis_client(settings)
     
-    # Kafka persistence and retention pruning run in the background
+    # Kafka persistence, retention pruning, and cache refresh run in the background
     app.state.background_tasks = [
         asyncio.create_task(run_consumer(app.state.session_factory, settings)),
         asyncio.create_task(run_retention_pruning(app.state.session_factory)),
+        asyncio.create_task(
+            run_cache_refresh(
+                app.state.session_factory,
+                app.state.redis_client,
+                settings.cache_refresh_interval_seconds
+            )
+        )
     ]
     
     logger.info("backend started")

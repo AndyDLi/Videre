@@ -1,5 +1,5 @@
 """
-Aged history is pruned to a 3-day window.
+Aged history is pruned to a 3-day window, run as a background task.
 """
 
 from __future__ import annotations
