@@ -1,5 +1,5 @@
 """
-Kafka to Postgres persistence loop.
+Kafka to Postgres persistence loop, run as a background task.
 """
 
 from __future__ import annotations
