@@ -17,7 +17,7 @@ from .cache.refresh import run_cache_refresh
 from .dependencies import create_engine, create_redis_client
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
-from .routes import health
+from .routes import capacity, clusters, failures, health, jobs, nodes
 from .settings import Settings
 
 logger = logging.getLogger("videre.backend")
@@ -63,5 +63,14 @@ def create_application(settings: Settings | None = None) -> FastAPI:
     configure_logging()
     application = FastAPI(title="Videre", lifespan=lifespan)
     application.state.settings = settings if settings is not None else Settings()
-    application.include_router(health.router)
+    
+    for router in (
+        health.router,
+        clusters.router,
+        nodes.router,
+        jobs.router,
+        failures.router,
+        capacity.router,
+    ):
+        application.include_router(router)
     return application

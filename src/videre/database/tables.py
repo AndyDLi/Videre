@@ -21,7 +21,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from videre.models import GpuHealthState, JobState, NodeHealthState, SchedulerEventType
 
@@ -78,6 +78,7 @@ class Node(Base):
     cluster_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("clusters.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    gpus: Mapped[list[Gpu]] = relationship(cascade="all, delete-orphan")
     cpu_cores: Mapped[int] = mapped_column(Integer, nullable=False)
     memory_gb: Mapped[int] = mapped_column(Integer, nullable=False)
     gpu_count: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -125,6 +126,7 @@ class Job(Base):
     cluster_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("clusters.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    node_assignments: Mapped[list[JobNodeAssignment]] = relationship(cascade="all, delete-orphan")
     lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False)
     requested_cpu_cores: Mapped[int] = mapped_column(Integer, nullable=False)
     requested_memory_gb: Mapped[int] = mapped_column(Integer, nullable=False)
