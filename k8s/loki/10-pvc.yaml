@@ -1,0 +1,16 @@
+# Persistent storage for Loki's chunks, TSDB index, and compactor state.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-data
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/part-of: videre
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 3Gi

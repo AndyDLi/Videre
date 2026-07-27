@@ -1,0 +1,18 @@
+# Internal address for Alloy's push endpoint and Grafana's Loki data source.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/part-of: videre
+spec:
+  type: ClusterIP
+  selector:
+    app: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: 3100
