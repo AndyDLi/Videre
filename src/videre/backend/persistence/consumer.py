@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from videre.events import TOPIC_MESSAGE_TYPES, Topic
 
+from ..metrics import record_event
 from ..settings import Settings
 from .event_mapping import apply_event
 
@@ -72,4 +73,5 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
         )
         return
     
+    record_event(topic, message)
     await consumer.commit()

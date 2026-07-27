@@ -1,6 +1,6 @@
 [project]
 name = "videre"
-version = "0.5.0"
+version = "0.6.0"
 description = "Videre AI cluster operations and debugging console"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,6 +10,8 @@ dependencies = [
     "confluent-kafka>=2.15.0",
     "fastapi>=0.140.0",
     "kubernetes>=36.0.3",
+    "prometheus-client>=0.26.0",
+    "prometheus-fastapi-instrumentator>=8.1.0",
     "pydantic>=2.9,<3",
     "pydantic-settings>=2.14.2",
     "redis>=8.0.1",

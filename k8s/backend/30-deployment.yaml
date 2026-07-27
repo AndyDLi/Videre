@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/andydli/videre-backend:0.5.0
+          image: ghcr.io/andydli/videre-backend:0.6.0
           ports:
             - name: http
               containerPort: 8000
