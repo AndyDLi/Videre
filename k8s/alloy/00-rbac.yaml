@@ -1,0 +1,36 @@
+# Alloy needs cluster-scoped read to discover pods.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/part-of: videre
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: videre-alloy
+  labels:
+    app.kubernetes.io/part-of: videre
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: videre-alloy
+  labels:
+    app.kubernetes.io/part-of: videre
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: videre-alloy
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: videre

@@ -1,0 +1,82 @@
+# Alloy in log-collection-only mode.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/part-of: videre
+data:
+  config.alloy: |
+    logging {
+      level  = "warn"
+      format = "logfmt"
+    }
+
+    // discover pods restricted to the videre namespace
+    discovery.kubernetes "videre_pods" {
+      role = "pod"
+
+      namespaces {
+        names = ["videre"]
+      }
+    }
+
+    // turn pod metadata into the labels LogQL queries by
+    discovery.relabel "videre_pods" {
+      targets = discovery.kubernetes.videre_pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_node_name"]
+        regex         = sys.env("NODE_NAME")
+        action        = "keep"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+
+      // where log files are written by the container
+      rule {
+        source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        target_label  = "__path__"
+        replacement   = "/var/log/pods/*$1/*.log"
+      }
+    }
+
+    local.file_match "videre_pods" {
+      path_targets = discovery.relabel.videre_pods.output
+    }
+
+    loki.source.file "videre_pods" {
+      targets    = local.file_match.videre_pods.targets
+      forward_to = [loki.process.videre.receiver]
+    }
+
+    loki.process "videre" {
+      forward_to = [loki.write.default.receiver]
+
+      stage.cri {}
+    }
+
+    loki.write "default" {
+      endpoint {
+        url = "http://loki.videre.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
