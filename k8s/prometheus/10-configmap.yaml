@@ -1,4 +1,4 @@
-# Baseline Prometheus configmap for scraping itself, kubelet metrics, and cAdvisor metrics.
+# Prometheus scrape config: self, kubelet metrics, cAdvisor metrics, and backend.
 
 apiVersion: v1
 kind: ConfigMap
@@ -55,3 +55,18 @@ data:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+      - job_name: videre-backend
+        scrape_interval: 15s
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: [videre]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: backend;http
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
