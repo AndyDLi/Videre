@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..metrics import record_cluster_snapshots
 from .builder import build_all_snapshots
 from .store import write_snapshot
 
@@ -30,6 +31,8 @@ async def refresh_once(
     ttl_seconds = max(1, int(interval_seconds * TTL_MULTIPLIER))
     for snapshot in snapshots:
         await write_snapshot(redis_client, snapshot, ttl_seconds)
+    
+    record_cluster_snapshots(snapshots)
     return len(snapshots)
 
 

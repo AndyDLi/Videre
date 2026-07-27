@@ -15,6 +15,7 @@ from videre.logging_config import configure_logging
 
 from .cache.refresh import run_cache_refresh
 from .dependencies import create_engine, create_redis_client
+from .metrics import instrument_application
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
 from .routes import capacity, clusters, failures, health, jobs, nodes, stream
@@ -82,4 +83,6 @@ def create_application(settings: Settings | None = None) -> FastAPI:
         stream.router
     ):
         application.include_router(router)
+    
+    instrument_application(application)
     return application
