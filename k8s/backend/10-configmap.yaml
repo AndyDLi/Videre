@@ -1,0 +1,18 @@
+# Non-secret backend settings.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: videre
+data:
+  VIDERE_POSTGRES_HOST: "postgres.videre.svc.cluster.local"
+  VIDERE_POSTGRES_PORT: "5432"
+  VIDERE_POSTGRES_DATABASE: "videre"
+  VIDERE_REDIS_HOST: "redis.videre.svc.cluster.local"
+  VIDERE_REDIS_PORT: "6379"
+  VIDERE_KAFKA_BOOTSTRAP_SERVERS: "kafka.videre.svc.cluster.local:9092"
+  VIDERE_CACHE_REFRESH_INTERVAL_SECONDS: "5"
