@@ -1,0 +1,18 @@
+# Internal only. Later, we put Traefik and Tailscale Funnel in front of this.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: videre
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
