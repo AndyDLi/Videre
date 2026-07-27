@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -35,11 +36,14 @@ async def refresh_once(
 async def run_cache_refresh(
     session_factory: async_sessionmaker[AsyncSession],
     redis_client: Redis,
-    interval_seconds: float
+    interval_seconds: float,
+    on_refresh: Callable[[], Awaitable[None]] | None = None
 ) -> None:
     while True:
         try:
             await refresh_once(session_factory, redis_client, interval_seconds)
+            if on_refresh is not None:    # push the new snapshot to WebSocket clients
+                await on_refresh()
             await asyncio.sleep(interval_seconds)
         except asyncio.CancelledError:
             logger.info("cache refresh stopped")
