@@ -1,5 +1,6 @@
 """
-Job state and history, read from Postgres.
+Job state and history.
+Read from Postgres since it is cheap to query with indexes and parameters.
 """
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
-# Alloy as a per-node log shipper.
+# Kubernetes captures logs from containers, stores them in /var/log/pods,
+# where Alloy, acting as a per-node log shipper, reads them and ships them to a Loki instance.
 
 apiVersion: apps/v1
 kind: DaemonSet

@@ -1,5 +1,6 @@
 """
 Environment setting configurations for Videre backend.
+Environment variables are injected from Kubernetes ConfigMaps and Secrets, prefixed with "VIDERE_".
 """
 
 from pydantic import Field, SecretStr

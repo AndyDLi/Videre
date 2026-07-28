@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis_client = create_redis_client(settings)
     
-    # WebSocket connection manager
+    # WebSocket connection manager; streaming/broadcast/fanout pattern
     app.state.connection_manager = ConnectionManager()
     async def broadcast_snapshot() -> None:
         payload = await stream.current_payload(app.state.redis_client)

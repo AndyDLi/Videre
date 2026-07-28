@@ -1,5 +1,6 @@
 """
 Cluster summaries, served from the Redis snapshot cache.
+Cached because cluster health is expensive to compute due to aggregates and no parameters.
 """
 
 from __future__ import annotations

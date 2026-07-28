@@ -65,7 +65,7 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
     
     try:
         async with session_factory() as session, session.begin():
-            await apply_event(session, topic, message)
+            await apply_event(session, topic, message)    # write to Postgres
     except Exception as error:
         logger.error(
             "persistence failed",
@@ -73,5 +73,5 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
         )
         return
     
-    record_event(topic, message)
+    record_event(topic, message)    # write to Prometheus registry
     await consumer.commit()

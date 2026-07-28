@@ -30,9 +30,9 @@ async def refresh_once(
     
     ttl_seconds = max(1, int(interval_seconds * TTL_MULTIPLIER))
     for snapshot in snapshots:
-        await write_snapshot(redis_client, snapshot, ttl_seconds)
+        await write_snapshot(redis_client, snapshot, ttl_seconds)    # write to Redis cache
     
-    record_cluster_snapshots(snapshots)
+    record_cluster_snapshots(snapshots)    # write to Prometheus registry
     return len(snapshots)
 
 

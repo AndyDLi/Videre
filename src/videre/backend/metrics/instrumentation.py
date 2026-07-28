@@ -18,7 +18,7 @@ def instrument_application(application: FastAPI, registry: CollectorRegistry | N
         registry=registry,    # container holding all Prometheus metrics for this application
     )
     
-    # expose the metrics endpoint to Prometheus
+    # expose the metrics endpoint to Prometheus to scrape metrics stored in the registry
     instrumentator.instrument(application).expose(
         application, endpoint=METRICS_ENDPOINT, include_in_schema=False
     )

@@ -59,6 +59,8 @@ def enum_check(column_name: str, enum_type: type[StrEnum]) -> CheckConstraint:
     return CheckConstraint(f"{column_name} IN ({allowed})", name=f"{column_name}_valid")
 
 
+# Current-state tables
+
 class Cluster(Base):
     __tablename__ = "clusters"
     
@@ -158,6 +160,8 @@ class JobNodeAssignment(Base):
         String(64), ForeignKey("nodes.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
+
+# Append-only tables
 
 class SchedulerEventRecord(Base):
     __tablename__ = "scheduler_events"

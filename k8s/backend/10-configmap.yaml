@@ -1,4 +1,5 @@
 # Non-secret backend settings.
+# All connections is a Kubernetes Service DNS name, injected as an environment variable.
 
 apiVersion: v1
 kind: ConfigMap
