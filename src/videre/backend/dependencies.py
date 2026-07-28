@@ -10,6 +10,7 @@ from httpx2 import AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from .ai.gemini import GeminiAnalyst
 from .settings import Settings
 
 
@@ -31,6 +32,12 @@ def create_http_client(settings: Settings) -> AsyncClient:
     return AsyncClient(timeout=settings.ai_source_timeout_seconds)
 
 
+def create_gemini_analyst(settings: Settings) -> GeminiAnalyst | None:
+    if not settings.gemini_api_key.get_secret_value():
+        return None
+    return GeminiAnalyst(settings)
+
+
 async def get_session(request: Request) -> AsyncIterable[AsyncSession]:
     """Dependency generator that yields a SQLAlchemy async session for a request handler."""
     
@@ -49,7 +56,13 @@ def get_http_client(request: Request) -> AsyncClient:
     return http_client
 
 
+def get_gemini_analyst(request: Request) -> GeminiAnalyst | None:
+    analyst: GeminiAnalyst | None = request.app.state.gemini_analyst
+    return analyst
+
+
 # type aliases for FastAPI to resolve dependencies in request handlers
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 RedisDependency = Annotated[Redis, Depends(get_redis)]
 HttpClientDependency = Annotated[AsyncClient, Depends(get_http_client)]
+GeminiAnalystDependency = Annotated["GeminiAnalyst | None", Depends(get_gemini_analyst)]
