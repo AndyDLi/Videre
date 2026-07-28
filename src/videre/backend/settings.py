@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     ai_metric_window_minutes: int = Field(default=15, gt=0)
     ai_log_window_minutes: int = Field(default=15, gt=0)
     ai_log_line_limit: int = Field(default=50, gt=0)
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_timeout_seconds: float = Field(default=20.0, gt=0.0)
+    gemini_maximum_attempts: int = Field(default=3, ge=1)
+    gemini_maximum_prompt_characters: int = Field(default=24_000, gt=0)
     
     @property
     def postgres_dsn(self) -> URL:

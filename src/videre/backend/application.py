@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from videre.logging_config import configure_logging
 
 from .cache.refresh import run_cache_refresh
-from .dependencies import create_engine, create_http_client, create_redis_client
+from .dependencies import create_engine, create_gemini_analyst, create_http_client, create_redis_client
 from .metrics import instrument_application
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis_client = create_redis_client(settings)
     app.state.http_client = create_http_client(settings)
+    app.state.gemini_analyst = create_gemini_analyst(settings)
     
     # WebSocket connection manager; streaming/broadcast/fanout pattern
     app.state.connection_manager = ConnectionManager()
@@ -56,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     ]
     
-    logger.info("backend started")
+    logger.info("backend started", extra={"ai_assistant_enabled": app.state.gemini_analyst is not None})
 
     try:
         yield
