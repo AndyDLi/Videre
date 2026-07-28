@@ -1669,6 +1669,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "confluent-kafka" },
     { name = "fastapi" },
+    { name = "httpx2" },
     { name = "kubernetes" },
     { name = "prometheus-client" },
     { name = "prometheus-fastapi-instrumentator" },
@@ -1681,7 +1682,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx2" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1696,6 +1696,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "confluent-kafka", specifier = ">=2.15.0" },
     { name = "fastapi", specifier = ">=0.140.0" },
+    { name = "httpx2", specifier = ">=2.9.1" },
     { name = "kubernetes", specifier = ">=36.0.3" },
     { name = "prometheus-client", specifier = ">=0.26.0" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=8.1.0" },
@@ -1708,7 +1709,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx2", specifier = ">=2.9.1" },
     { name = "mypy", specifier = ">=1.11" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },

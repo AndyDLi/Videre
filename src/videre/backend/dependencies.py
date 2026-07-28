@@ -6,6 +6,7 @@ from collections.abc import AsyncIterable
 from typing import Annotated
 
 from fastapi import Depends, Request
+from httpx2 import AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -24,6 +25,12 @@ def create_redis_client(settings: Settings) -> Redis:
     return Redis.from_url(settings.redis_url, decode_responses=True)
 
 
+def create_http_client(settings: Settings) -> AsyncClient:
+    """Create and configure a reusable HTTP client for Prometheus and Loki query APIs."""
+    
+    return AsyncClient(timeout=settings.ai_source_timeout_seconds)
+
+
 async def get_session(request: Request) -> AsyncIterable[AsyncSession]:
     """Dependency generator that yields a SQLAlchemy async session for a request handler."""
     
@@ -37,6 +44,12 @@ def get_redis(request: Request) -> Redis:
     return redis_client
 
 
+def get_http_client(request: Request) -> AsyncClient:
+    http_client: AsyncClient = request.app.state.http_client
+    return http_client
+
+
 # type aliases for FastAPI to resolve dependencies in request handlers
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 RedisDependency = Annotated[Redis, Depends(get_redis)]
+HttpClientDependency = Annotated[AsyncClient, Depends(get_http_client)]
