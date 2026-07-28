@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     kafka_bootstrap_servers: str = "kafka.videre.svc.cluster.local:9092"
     cache_refresh_interval_seconds: float = Field(default=5.0, gt=0.0)
+    prometheus_base_url: str = "http://prometheus.videre.svc.cluster.local:9090"
+    loki_base_url: str = "http://loki.videre.svc.cluster.local:3100"
+    ai_source_timeout_seconds: float = Field(default=3.0, gt=0.0)
+    ai_metric_window_minutes: int = Field(default=15, gt=0)
+    ai_log_window_minutes: int = Field(default=15, gt=0)
+    ai_log_line_limit: int = Field(default=50, gt=0)
     
     @property
     def postgres_dsn(self) -> URL:

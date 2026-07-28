@@ -9,6 +9,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "confluent-kafka>=2.15.0",
     "fastapi>=0.140.0",
+    "httpx2>=2.9.1",
     "kubernetes>=36.0.3",
     "prometheus-client>=0.26.0",
     "prometheus-fastapi-instrumentator>=8.1.0",
@@ -28,7 +29,6 @@ packages = ["src/videre"]
 
 [dependency-groups]
 dev = [
-    "httpx2>=2.9.1",
     "mypy>=1.11",
     "pytest>=8",
     "pytest-asyncio>=1.4.0",
