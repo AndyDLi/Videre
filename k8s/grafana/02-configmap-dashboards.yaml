@@ -1,0 +1,606 @@
+# Generated from k8s/grafana/dashboards/*.json. Do not hand edit; regenerate after changing a dashboard.
+
+apiVersion: v1
+data:
+  cluster-overview.json: |
+    {
+      "uid": "videre-cluster-overview",
+      "title": "Cluster Overview",
+      "tags": ["videre"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "15s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Nodes by health state",
+          "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (state) (videre_node_health_state)",
+              "legendFormat": "{{state}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0 },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "GPUs by health state",
+          "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (state) (videre_gpu_health_state)",
+              "legendFormat": "{{state}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0 },
+            "overrides": []
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Jobs by lifecycle state",
+          "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (state) (videre_jobs_by_state)",
+              "legendFormat": "{{state}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0 },
+            "overrides": []
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Average GPU utilization by node",
+          "gridPos": { "h": 9, "w": 16, "x": 0, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "avg by (node_id) (videre_gpu_utilization_percent)",
+              "legendFormat": "{{node_id}}"
+            },
+            {
+              "refId": "B",
+              "expr": "avg(videre_gpu_utilization_percent)",
+              "legendFormat": "cluster average"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "custom": { "fillOpacity": 8, "lineWidth": 2, "showPoints": "never" }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Unresolved failures",
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "videre_unresolved_failures", "instant": true }
+          ],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Backend scrape health",
+          "gridPos": { "h": 5, "w": 8, "x": 16, "y": 9 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "up{job=\"videre-backend\"}", "instant": true }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 0 } } },
+                { "type": "value", "options": { "1": { "text": "UP", "color": "green", "index": 1 } } }
+              ]
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Job throughput per minute",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(rate(videre_job_completions_total[5m])) * 60",
+              "legendFormat": "completed"
+            },
+            {
+              "refId": "B",
+              "expr": "sum(rate(videre_job_failures_total[5m])) * 60",
+              "legendFormat": "failure events"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        }
+      ]
+    }
+  failures-and-capacity.json: |
+    {
+      "uid": "videre-failures-capacity",
+      "title": "Failures & Capacity",
+      "tags": ["videre"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "30s",
+      "time": { "from": "now-24h", "to": "now" },
+      "templating": { "list": [] },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Failure events per minute by category",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(videre_node_failure_events_total[10m])) * 60", "legendFormat": "node" },
+            { "refId": "B", "expr": "sum(rate(videre_gpu_error_events_total[10m])) * 60", "legendFormat": "gpu" },
+            { "refId": "C", "expr": "sum(rate(videre_job_failures_total[10m])) * 60", "legendFormat": "job" },
+            { "refId": "D", "expr": "sum(rate(videre_capacity_events_total[10m])) * 60", "legendFormat": "capacity" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "custom": { "fillOpacity": 20, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 2,
+          "type": "bargauge",
+          "title": "Job failures by mode",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (failure_mode) (increase(videre_job_failures_total[$__range]))",
+              "legendFormat": "{{failure_mode}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "min": 0 }, "overrides": [] }
+        },
+        {
+          "id": 3,
+          "type": "bargauge",
+          "title": "GPU errors by type",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (error_type) (increase(videre_gpu_error_events_total[$__range]))",
+              "legendFormat": "{{error_type}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "min": 0 }, "overrides": [] }
+        },
+        {
+          "id": 4,
+          "type": "bargauge",
+          "title": "Node failures by mode",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (failure_mode) (increase(videre_node_failure_events_total[$__range]))",
+              "legendFormat": "{{failure_mode}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "min": 0 }, "overrides": [] }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Nodes out of the schedulable pool",
+          "gridPos": { "h": 5, "w": 8, "x": 0, "y": 17 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(videre_node_health_state{state=~\"DRAINING|CORDONED|NOT_READY\"})",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 2 }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Reserved-but-idle GPUs (below 5% utilization)",
+          "gridPos": { "h": 5, "w": 8, "x": 8, "y": 17 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "count(videre_gpu_utilization_percent < 5)", "instant": true }
+          ],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+        },
+        {
+          "id": 7,
+          "type": "stat",
+          "title": "Capacity events in range",
+          "gridPos": { "h": 5, "w": 8, "x": 16, "y": 17 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (event_type) (increase(videre_capacity_events_total[$__range]))",
+              "legendFormat": "{{event_type}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+        },
+        {
+          "id": 8,
+          "type": "logs",
+          "title": "Backend warnings and errors",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 22 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{namespace=\"videre\", app=\"backend\"} |~ \"WARNING|ERROR\"",
+              "queryType": "range"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending",
+            "enableLogDetails": true
+          }
+        }
+      ]
+    }
+  node-gpu-drilldown.json: |
+    {
+      "uid": "videre-node-gpu-drilldown",
+      "title": "Node/GPU Drill-Down",
+      "tags": ["videre"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "15s",
+      "time": { "from": "now-3h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "node",
+            "label": "Node",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "query": { "query": "label_values(videre_node_health_state, node_id)", "refId": "node" },
+            "refresh": 2,
+            "sort": 1,
+            "includeAll": false,
+            "multi": false
+          },
+          {
+            "name": "gpu",
+            "label": "GPU",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "query": {
+              "query": "label_values(videre_gpu_utilization_percent{node_id=\"$node\"}, gpu_id)",
+              "refId": "gpu"
+            },
+            "refresh": 2,
+            "sort": 1,
+            "includeAll": true,
+            "multi": true
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Health state of $node",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "videre_node_health_state{node_id=\"$node\"}",
+              "legendFormat": "{{state}}",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "GPU utilization on $node",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "videre_gpu_utilization_percent{node_id=\"$node\", gpu_id=~\"$gpu\"}",
+              "legendFormat": "{{gpu_id}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "custom": { "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "GPU temperature on $node",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "videre_gpu_temperature_celsius{node_id=\"$node\", gpu_id=~\"$gpu\"}",
+              "legendFormat": "{{gpu_id}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "min": 0,
+              "custom": { "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 80 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "GPU memory used on $node",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "videre_gpu_memory_used_bytes{node_id=\"$node\", gpu_id=~\"$gpu\"}",
+              "legendFormat": "{{gpu_id}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "custom": { "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Cumulative error events on $node",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (error_type) (videre_gpu_error_events_total{node_id=\"$node\"})",
+              "legendFormat": "gpu {{error_type}}"
+            },
+            {
+              "refId": "B",
+              "expr": "sum by (failure_mode) (videre_node_failure_events_total{node_id=\"$node\"})",
+              "legendFormat": "node {{failure_mode}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "custom": { "fillOpacity": 0, "lineWidth": 2, "showPoints": "never" }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          }
+        },
+        {
+          "id": 6,
+          "type": "logs",
+          "title": "Simulator log lines mentioning $node",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{namespace=\"videre\", app=\"simulator\"} |= \"$node\"",
+              "queryType": "range"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending",
+            "enableLogDetails": true
+          }
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: videre

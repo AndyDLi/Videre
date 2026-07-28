@@ -1,4 +1,4 @@
-# Automatically create a Prometheus data source in Grafana on startup.
+# Automatically create the Prometheus and Loki data sources in Grafana on startup.
 
 apiVersion: v1
 kind: ConfigMap
@@ -19,3 +19,14 @@ data:
         url: http://prometheus:9090
         isDefault: true
         editable: false
+
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: false
+        editable: false
+        jsonData:
+          maxLines: 1000
+          timeout: 30
