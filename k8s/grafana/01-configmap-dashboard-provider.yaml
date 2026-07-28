@@ -1,0 +1,24 @@
+# Registers the provisioned dashboard directory.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: videre
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: videre
+        orgId: 1
+        folder: Videre
+        type: file
+        disableDeletion: true
+        allowUiUpdates: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
