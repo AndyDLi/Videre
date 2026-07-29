@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: float = Field(default=20.0, gt=0.0)
     gemini_maximum_attempts: int = Field(default=3, ge=1)
     gemini_maximum_prompt_characters: int = Field(default=24_000, gt=0)
+    ai_global_daily_limit: int = Field(default=400, gt=0)
+    ai_global_minute_limit: int = Field(default=10, gt=0)
+    ai_client_daily_limit: int = Field(default=20, gt=0)
+    ai_client_minute_limit: int = Field(default=3, gt=0)
     
     @property
     def postgres_dsn(self) -> URL:
