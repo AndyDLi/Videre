@@ -18,16 +18,17 @@ All keys use `:` as the hierarchy separator.
 # Current cluster-health snapshot used for low-latency frontend reads.
 cache:cluster-health:<cluster_id>
 
-# WebSocket connection or message counter for a client IP address.
-ratelimit:ws:<ip>
+# WebSocket connection counter for a client IP address.
+ratelimit:websocket:<ip>
 
-# Global daily AI request counter, capped at approximately 80% of the provider quota (adjustable).
+# Global daily AI request counter, capped at approximately 80% of the provider quota.
 ratelimit:ai:global:day:<YYYY-MM-DD>
 
 # Global per-minute AI request counter.
 ratelimit:ai:global:min:<epoch_minute>
 
-# Per-IP AI request counter for a specific minute.
+# Per-IP AI request counters, daily and per-minute.
+ratelimit:ai:ip:<ip>:day:<YYYY-MM-DD>
 ratelimit:ai:ip:<ip>:min:<epoch_minute>
 
 # Cached AI response. The fingerprint combines the entity ID, health state, and unresolved failure IDs.
