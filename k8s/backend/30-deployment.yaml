@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/andydli/videre-backend:0.6.0
+          image: ghcr.io/andydli/videre-backend:0.7.0
           ports:
             - name: http
               containerPort: 8000
@@ -42,6 +42,11 @@ spec:
                 secretKeyRef:
                   name: postgres-app-secret
                   key: POSTGRES_APP_PASSWORD
+            - name: VIDERE_GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gemini-secret
+                  key: GEMINI_API_KEY
           resources:
             requests:
               cpu: 100m
