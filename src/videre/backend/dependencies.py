@@ -61,8 +61,20 @@ def get_gemini_analyst(request: Request) -> GeminiAnalyst | None:
     return analyst
 
 
+def get_settings(request: Request) -> Settings:
+    settings: Settings = request.app.state.settings
+    return settings
+
+
+def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
+    session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+    return session_factory
+
+
 # type aliases for FastAPI to resolve dependencies in request handlers
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 RedisDependency = Annotated[Redis, Depends(get_redis)]
 HttpClientDependency = Annotated[AsyncClient, Depends(get_http_client)]
 GeminiAnalystDependency = Annotated["GeminiAnalyst | None", Depends(get_gemini_analyst)]
+SettingsDependency = Annotated[Settings, Depends(get_settings)]
+SessionFactoryDependency = Annotated["async_sessionmaker[AsyncSession]", Depends(get_session_factory)]

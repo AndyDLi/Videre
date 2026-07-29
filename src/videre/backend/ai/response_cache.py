@@ -46,3 +46,14 @@ async def write_cached_analysis(
     ttl_seconds: int
 ) -> None:
     await redis_client.set(cache_key(fingerprint), analysis.model_dump_json(), ex=ttl_seconds)
+
+
+async def cached_age_seconds(
+    redis_client: Redis,
+    fingerprint: EntityFingerprint,
+    ttl_seconds: int
+) -> int | None:
+    remaining = await redis_client.ttl(cache_key(fingerprint))
+    if remaining is None or remaining < 0:
+        return None
+    return max(ttl_seconds - int(remaining), 0)
