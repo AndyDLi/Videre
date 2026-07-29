@@ -105,7 +105,7 @@ async def enforce_rate_limit(redis_client: Redis, settings: Settings, client: st
         
         if count > window.limit:
             logger.warning(
-                "ai request rate limited",
+                "AI request rate limited",
                 extra={
                     "window": window.name,
                     "limit": window.limit,
