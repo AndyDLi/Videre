@@ -40,6 +40,9 @@ class FakeRedis:
     async def expire(self, key: str, seconds: int) -> bool:
         return True
 
+    async def ttl(self, key: str) -> int:
+        return self.expiries.get(key, -2)
+
 
 class NullSessionFactory:
     def __call__(self) -> "NullSessionFactory":

@@ -17,7 +17,7 @@ from .analysis import RootCauseAnalysis
 from .fingerprint import EntityFingerprint
 from .gemini import GeminiAnalyst
 from .rate_limit import enforce_rate_limit
-from .response_cache import read_cached_analysis, write_cached_analysis
+from .response_cache import cached_age_seconds, read_cached_analysis, write_cached_analysis
 from .retrieval import assemble_failure_context
 
 logger = logging.getLogger("videre.backend.ai.assistant")
@@ -27,6 +27,7 @@ logger = logging.getLogger("videre.backend.ai.assistant")
 class AnalysisResult:
     analysis: RootCauseAnalysis
     from_cache: bool
+    cache_age_seconds: int | None = None
 
 
 async def analyze_entity(
@@ -40,14 +41,16 @@ async def analyze_entity(
 ) -> AnalysisResult:
     cached = await read_cached_analysis(redis_client, fingerprint)
     if cached is not None:
+        age = await cached_age_seconds(redis_client, fingerprint, settings.ai_cache_ttl_seconds)
         logger.info(
             "AI analysis served from cache",
             extra={
                 "entity_type": fingerprint.entity_type.value,
-                "entity_id": fingerprint.entity_id
+                "entity_id": fingerprint.entity_id,
+                "cache_age_seconds": age
             }
         )
-        return AnalysisResult(analysis=cached, from_cache=True)
+        return AnalysisResult(analysis=cached, from_cache=True, cache_age_seconds=age)
     
     await enforce_rate_limit(redis_client, settings, client)    # enforce rate limit before doing any work
     

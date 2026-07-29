@@ -18,7 +18,7 @@ from .dependencies import create_engine, create_gemini_analyst, create_http_clie
 from .metrics import instrument_application
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
-from .routes import capacity, clusters, failures, health, jobs, nodes, stream
+from .routes import ai, capacity, clusters, failures, health, jobs, nodes, stream
 from .settings import Settings
 from .websocket.manager import ConnectionManager
 
@@ -83,7 +83,8 @@ def create_application(settings: Settings | None = None) -> FastAPI:
         jobs.router,
         failures.router,
         capacity.router,
-        stream.router
+        stream.router,
+        ai.router
     ):
         application.include_router(router)
     
