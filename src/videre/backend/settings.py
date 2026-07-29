@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     ai_global_minute_limit: int = Field(default=10, gt=0)
     ai_client_daily_limit: int = Field(default=20, gt=0)
     ai_client_minute_limit: int = Field(default=3, gt=0)
+    ai_cache_ttl_seconds: int = Field(default=420, gt=0)
     
     @property
     def postgres_dsn(self) -> URL:

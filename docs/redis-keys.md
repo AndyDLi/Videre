@@ -32,7 +32,7 @@ ratelimit:ai:ip:<ip>:day:<YYYY-MM-DD>
 ratelimit:ai:ip:<ip>:min:<epoch_minute>
 
 # Cached AI response. The fingerprint combines the entity ID, health state, and unresolved failure IDs.
-ai:resp:<fingerprint>
+ai:resp:<entity_type>:<entity_id>:<digest>
 ```
 
 ## Operational Rules
