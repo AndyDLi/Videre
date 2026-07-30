@@ -36,7 +36,12 @@ class Settings(BaseSettings):
     ai_client_daily_limit: int = Field(default=20, gt=0)
     ai_client_minute_limit: int = Field(default=3, gt=0)
     ai_cache_ttl_seconds: int = Field(default=420, gt=0)
-    
+    cors_allowed_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_allowed_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+
     @property
     def postgres_dsn(self) -> URL:
         return URL.create(
