@@ -1,13 +1,5 @@
-import { Link } from 'react-router-dom';
-
-import { PageContainer } from '../components/PageContainer';
+import { DetailFallback } from '../components/DetailFallback';
 
 export function NotFoundPage() {
-    return (
-        <PageContainer title="Page Not Found" description="This route does not exist.">
-            <Link to="/" className="text-sm font-medium underline">
-                Back to the Cluster Overview
-            </Link>
-        </PageContainer>
-    );
+    return <DetailFallback title="Page Not Found">This route does not exist.</DetailFallback>;
 }

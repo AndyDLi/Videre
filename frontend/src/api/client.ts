@@ -98,7 +98,11 @@ async function request<ResponseT>(
         );
     }
 
-    return (await response.json()) as ResponseT;
+    try {
+        return (await response.json()) as ResponseT;
+    } catch {
+        throw new ApiError(response.status, 'the server did not return JSON', null);
+    }
 }
 
 export function get<ResponseT>(

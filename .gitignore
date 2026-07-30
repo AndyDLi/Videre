@@ -7,6 +7,10 @@ tasks/
 # Environment variables
 .env
 
+# MCP
+.mcp.json
+.playwright-mcp/
+
 # Rendered Kubernetes secrets
 k8s/**/secret.yaml
 k8s/**/*.secret.yaml

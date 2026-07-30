@@ -3,13 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, get, post, toApiError } from '../api/client';
 import { apiBaseUrl, restUrl, webSocketUrl } from '../api/config';
 import { listFailures } from '../api/endpoints';
-
-function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json', ...headers },
-    });
-}
+import { jsonResponse } from './fixtures';
 
 afterEach(() => {
     vi.restoreAllMocks();

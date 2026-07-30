@@ -42,6 +42,12 @@ spec:
                   key: admin-password
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            - name: GF_SECURITY_ALLOW_EMBEDDING    # allows embedding in an iframe
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ENABLED      # allows anonymous access without login
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE     # read-only Viewer
+              value: Viewer
           resources:
             requests:
               cpu: 100m

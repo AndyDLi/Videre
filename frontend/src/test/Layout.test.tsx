@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ClusterHealthSnapshot } from '../api/types';
 import { Layout } from '../components/Layout';
+import { jsonResponse } from './fixtures';
 
 const HEALTHY_SNAPSHOT: ClusterHealthSnapshot = {
     cluster_id: 'cluster-1',
@@ -29,12 +30,7 @@ function renderLayout(): void {
 
 describe('Layout', () => {
     beforeEach(() => {
-        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(JSON.stringify([HEALTHY_SNAPSHOT]), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            }),
-        );
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([HEALTHY_SNAPSHOT]));
     });
 
     afterEach(() => {
@@ -65,20 +61,17 @@ describe('Layout', () => {
         vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
         renderLayout();
         await waitFor(() => {
-            expect(screen.getByText('backend unreachable')).toBeInTheDocument();
+            expect(screen.getByText('Backend unreachable')).toBeInTheDocument();
         });
     });
 
     it('shows cluster health unavailable when the cache is empty', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(JSON.stringify({ detail: 'cluster health cache is empty' }), {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' },
-            }),
+            jsonResponse({ detail: 'cluster health cache is empty' }, 503),
         );
         renderLayout();
         await waitFor(() => {
-            expect(screen.getByText('cluster health unavailable')).toBeInTheDocument();
+            expect(screen.getByText('Cluster health unavailable')).toBeInTheDocument();
         });
     });
 });
