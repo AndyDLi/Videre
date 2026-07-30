@@ -19,15 +19,15 @@ export function ClusterHealthSummary() {
     const { data, error, isLoading } = useApiResource(fetcher, POLL_INTERVAL_MILLISECONDS);
 
     if (isLoading && data === null && error === null) {
-        return <span className="text-sm text-text-muted">checking cluster health…</span>;
+        return <span className="text-sm text-text-muted">Checking cluster health…</span>;
     }
 
     if (error !== null || data === null) {
         return (
             <span className="text-sm font-semibold text-state-bad" role="status">
                 {error?.isNetworkFailure === true
-                    ? 'backend unreachable'
-                    : 'cluster health unavailable'}
+                    ? 'Backend unreachable'
+                    : 'Cluster health unavailable'}
             </span>
         );
     }

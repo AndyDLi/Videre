@@ -2,6 +2,11 @@ const configuredBaseUrl: string = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export const apiBaseUrl: string = configuredBaseUrl.replace(/\/+$/, '');
 
+export const grafanaBaseUrl: string = (import.meta.env.VITE_GRAFANA_BASE_URL ?? '').replace(
+    /\/+$/,
+    '',
+);
+
 export function restUrl(path: string): string {
     if (apiBaseUrl.startsWith('http://') || apiBaseUrl.startsWith('https://')) {
         return `${apiBaseUrl}${path}`;

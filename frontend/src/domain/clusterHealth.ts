@@ -2,7 +2,7 @@ import type { ClusterHealthSnapshot } from '../api/types';
 
 export type HealthTone = 'good' | 'warning' | 'bad' | 'neutral';
 
-export interface OverallHealth {
+interface OverallHealth {
     tone: HealthTone;
     label: string;
     detail: string;
