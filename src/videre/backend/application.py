@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from videre.logging_config import configure_logging
@@ -76,6 +77,17 @@ def create_application(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(title="Videre", lifespan=lifespan)
     application.state.settings = settings if settings is not None else Settings()
     
+    # CORS middleware configuration; allow only the origins specified in settings to access the API
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=application.state.settings.cors_allowed_origin_list,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+        expose_headers=["Retry-After"],
+    )
+    
+    # register all API routers
     for router in (
         health.router,
         clusters.router,
