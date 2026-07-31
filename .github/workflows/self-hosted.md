@@ -8,9 +8,7 @@ In Videre, a runner needs to talk to the k3s API Server, but the only exposed pu
 
 Although we could route public internet traffic through Traefik to expose the internal k3s API server, this should never be done because it invites security vulnerabilities that must be handled with precise configurations. Therefore, we keep 443 open for public web traffic and 6443 strictly private.
 
-## Workflow
-
-Tests, image builds, and registry pushes run on GitHub's hosted runners, only the deploy job uses the self-hosted runner. In addition, an automated smoke-test workflow executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, spawning Pods, or accessing resources outside the `videre` namespace, and asserts that Kubernetes denies every request.
+## Architecture
 
 To deploy securely across this private network boundary, our pipeline relies on a least-privilege deployment identity and an outbound-initiated runner execution loop.
 
@@ -27,3 +25,26 @@ Instead of GitHub initiating an inbound connection to the cluster, the self-host
 
 - The runner continuously initiates outbound requests over the internet to GitHub Actions to check for queued deployment jobs.
 - Once a scheduled job's workflow instructions and deployment artifacts are downloaded locally, the runner uses the local `videre-deployer` kubeconfig to execute `kubectl` commands directly against the private k3s API server.
+
+## Workflow
+
+Tests, image builds, and registry pushes run on GitHub's hosted runners (`ubuntu-latest`). Only the deploy job uses the self-hosted runner (`videre-deploy`). The pipeline is divided into three sequential phases:
+
+### 1. Verification (PRs & `main`)
+
+Two testing jobs run in parallel on every push to `main` and on all pull requests:
+
+- **Backend & Simulator** (`test-python`): uses uv to install locked dependencies, lint code, enforce static type safety, and execute test suites.
+- **Frontend** (`test-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, formatting verification, and unit tests.
+
+### 2. Packaging & Publishing (`main` only)
+
+Once verification succeeds on `main`, the `build-and-push` job compiles and publishes images to the GitHub Container Registry (`ghcr.io`):
+
+- Builds and pushes three distinct container images (simulator, backend, frontend), tagged using `<semantic-version>-<short-sha>`, read from `pyproject.toml` and `package.json` to ensure every deployment has a unique image reference and prevents Kubernetes nodes from silently serving stale cached layers.
+
+### 3. Cluster Deployment & Security Auditing
+
+- Before deploying, an automated security check executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, spawning Pods, or accessing resources outside the `videre` namespace, and asserts that Kubernetes denies every request.
+- Issues `kubectl set image` commands to update the simulator, backend, and frontend deployments to the newly minted container tags.
+- Monitors the clusters to ensure all new pods become healthy and ready before marking the pipeline as successful, and reports a post-deploy final state of the namespace for auditing.
