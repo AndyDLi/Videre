@@ -1,4 +1,4 @@
-# Smoke-test, test, build, push, and deploy.
+# Tests, builds, push, and deploy.
 
 name: CI
 
