@@ -42,12 +42,16 @@ spec:
                   key: admin-password
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
-            - name: GF_SECURITY_ALLOW_EMBEDDING    # allows embedding in an iframe
+            - name: GF_SECURITY_ALLOW_EMBEDDING      # allows embedding in an iframe
               value: "true"
-            - name: GF_AUTH_ANONYMOUS_ENABLED      # allows anonymous access without login
+            - name: GF_AUTH_ANONYMOUS_ENABLED        # allows anonymous access without login
               value: "true"
-            - name: GF_AUTH_ANONYMOUS_ORG_ROLE     # read-only Viewer
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE       # read-only Viewer
               value: Viewer
+            - name: GF_SERVER_ROOT_URL               # public address Grafana writes into
+              value: https://ragingasian.tail462d2b.ts.net/grafana
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH    # serve under /grafana
+              value: "true"
           resources:
             requests:
               cpu: 100m

@@ -1,0 +1,14 @@
+# Removes the public /api prefix before a request reaches the backend to match expected paths.
+
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-strip-prefix
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: videre
+spec:
+  stripPrefix:
+    prefixes:
+      - /api

@@ -1,0 +1,57 @@
+# Public routing for Videre.
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: videre
+  namespace: videre
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: videre
+spec:
+  entryPoints:
+    - web
+  routes:
+    # Route narrowed requests to the Grafana service; each prefix is one a d-solo panel embed requests
+    - kind: Rule
+      priority: 30
+      match: >-
+        PathPrefix(`/grafana/d-solo`)
+        || PathPrefix(`/grafana/public`)
+        || PathPrefix(`/grafana/apis`)
+        || PathPrefix(`/grafana/api/ds/query`)
+        || PathPrefix(`/grafana/api/datasources/uid`)
+        || PathPrefix(`/grafana/api/plugins`)
+        || PathPrefix(`/grafana/api/folders`)
+        || PathPrefix(`/grafana/api/annotations`)
+        || PathPrefix(`/grafana/api/live/ws`)
+        || PathPrefix(`/grafana/api/frontend-metrics`)
+        || PathPrefix(`/grafana/api/prometheus/grafana/api/v1/rules`)
+      services:
+        - name: grafana
+          port: 3000
+
+    # Route narrowed requests to the backend service, stripping the /api prefix first
+    - kind: Rule
+      priority: 20
+      match: >-
+        PathPrefix(`/api/clusters`)
+        || PathPrefix(`/api/nodes`)
+        || PathPrefix(`/api/jobs`)
+        || PathPrefix(`/api/failures`)
+        || PathPrefix(`/api/capacity`)
+        || PathPrefix(`/api/ai`)
+        || PathPrefix(`/api/ws`)
+      middlewares:
+        - name: api-strip-prefix
+      services:
+        - name: backend
+          port: 8000
+
+    # Route all other requests to the frontend service
+    - kind: Rule
+      priority: 10
+      match: PathPrefix(`/`)
+      services:
+        - name: frontend
+          port: 80
