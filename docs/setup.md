@@ -88,7 +88,6 @@ Tailscale Funnel exposes the selected local service through Tailscale's HTTPS ed
 
 - Install Tailscale inside Ubuntu: `curl -fsSL https://tailscale.com/install.sh | sh`.
 - Then `sudo tailscale up` and complete the browser-based authentication flow.
-- Allow the `andyd` Linux user to run Tailscale commands without `sudo`: `sudo tailscale set --operator=andyd`.
 - In the Tailscale admin console, enable MagicDNS and HTTPS Certificates because both are required for Funnel and use the tailnet suffix `tail462d2b.ts.net`.
 - Grant the Funnel Node attribute through the Tailscale access-control policy:
 
@@ -98,7 +97,19 @@ Tailscale Funnel exposes the selected local service through Tailscale's HTTPS ed
 ]
 ```
 
-Manage Funnel with the following commands: `sudo tailscale funnel --bg <port>` exposes a local port publicly and persists the configuration across restarts; `tailscale funnel status` shows the active Funnel configuration; `sudo tailscale funnel reset` removes the current Funnel configuration.
+Funnel forwards the public endpoint to Traefik, the ingress controller built into k3s, which then routes each request to the right service inside the cluster:
+
+```bash
+sudo tailscale funnel --bg 80
+```
+
+- `--bg` runs Funnel as a background service and stores the configuration inside `tailscaled`, so it survives service restarts and host reboots without being entered again.
+- The forwarding target is `127.0.0.1:80`.
+- The target is Traefik's plain HTTP port rather than its HTTPS port because TLS already terminates at Tailscale's edge. Forwarding to HTTPS would only add a second, self-signed handshake across the loopback interface and protect nothing.
+
+Inspect the active configuration with `tailscale funnel status`, and remove it with `sudo tailscale funnel reset`.
+
+While the stack is stopped, the public URL returns `502 Bad Gateway` because nothing is listening behind port 80. This is expected under the on-demand availability model, and the Funnel configuration itself stays in place.
 
 ## Baseline Idle Usage
 

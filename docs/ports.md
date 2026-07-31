@@ -2,46 +2,46 @@
 
 ## Cluster
 
-ClusterIP Services in the `videre` namespace, reachable by other pods as `http://<name>:<port>`.
+These ClusterIP Services in the `videre` namespace are reachable anywhere inside the cluster via standard DNS (`http://<name>:<port>`), but are isolated from the outside world.
 
 | Port | Component | Function |
 |---|---|---|
-| 80 | `frontend` | Maps onto the Nginx container's 8080 |
-| 3000 | `grafana` | Dashboards, and the `d-solo` panels embedded by the drill-down pages |
-| 3100 | `loki` | Log ingest and query API |
-| 5432 | `postgres` | Entity state, job history, failure records |
-| 6379 | `redis` | Cluster-health cache, rate-limit counters, AI response cache |
-| 8000 | `backend` | REST API, `/ws/cluster-health`, `/metrics` |
-| 9090 | `prometheus` | Metrics store and query API |
-| 9092 | `kafka` | Broker listener; headless Service |
+| 80 | `frontend` | Standard HTTP bridge that forwards traffic to the container's unprivileged port 8080. |
+| 3000 | `grafana` | Visualization dashboard serving full monitoring UI and `/d-solo/...` embedded charts pulled into drill-down iframes. |
+| 3100 | `loki` | Two-way HTTP pipeline for Alloy to push logs and Grafana to query them. |
+| 5432 | `postgres` | Entity state, job history, failure records. |
+| 6379 | `redis` | Cluster-health cache, rate-limit counters, AI response cache. |
+| 8000 | `backend` | REST APIs, `/ws/cluster-health`, `/metrics` |
+| 9090 | `prometheus` | Stores metrics and serves the query API for Grafana. |
+| 9092 | `kafka` | Network socket where the Kafka server sits and listens for connections. |
 
 ## Container
 
-Listening inside their own pod, with no Service in front.
+These listeners run locally inside individual pods as the actual destination that ClusterIP Services route traffic to. They have no DNS name and can only be reached via their pod IP or `localhost`.
 
 | Port | Component | Function |
 |---|---|---|
-| 8080 | `frontend` | Nginx's listener; 8080 because it runs unprivileged and cannot bind 80 |
-| 9093 | `kafka` | KRaft controller listener |
-| 9096 | `loki` | gRPC listener; unused in single-binary mode |
-| 12345 | `alloy` | HTTP and health endpoint; the DaemonSet has no Service, so it is reached by pod IP |
+| 8080 | `frontend` | The Nginx web server, binded to 8080 to run securely as a non-root user. |
+| 9093 | `kafka` | KRaft controller listener. |
+| 9096 | `loki` | Internal gRPC listener. |
+| 12345 | `alloy` | Log collector's HTTP server. |
 
 ## Local
 
-On the developer's machine. The port-forwards are created on demand and stop when the command does.
+These ports runs on local hardware to build, test, and control the cluster.
 
 | Port | Component | Function |
 |---|---|---|
-| 80 | Traefik | HTTP ingress; no route configured until Phase 8 |
-| 443 | Traefik | HTTPS ingress; no route configured until Phase 8 |
-| 3000 | Grafana port-forward | `kubectl -n videre port-forward svc/grafana 3000:3000` |
-| 5173 | Vite dev server | `npm run dev`; the working local dashboard |
-| 6443 | k3s API server | Kubernetes control plane |
-| 8000 | Backend port-forward | `kubectl -n videre port-forward svc/backend 8000:8000` |
-| 8082 | Frontend port-forward | `kubectl -n videre port-forward svc/frontend 8082:80` |
+| 80 | Traefik | Receives the HTTP traffic that Tailscale Funnel forwards from the public URL, then routes it to the right Kubernetes Service. |
+| 443 | Traefik | Available for direct HTTPS traffic, but currently unused because Tailscale Funnel sends traffic to Traefix on port 80 instead. |
+| 6443 | k3s API server | Kubernetes control plane. |
+| 5173 | Vite dev server | The local dashboard from `npm run dev`. |
+| 3000 | Grafana port-forward | `kubectl -n videre port-forward svc/grafana 3000:3000`. |
+| 8000 | Backend port-forward | `kubectl -n videre port-forward svc/backend 8000:8000`. |
+| 8082 | Frontend port-forward | `kubectl -n videre port-forward svc/frontend 8082:80`. |
 
 ## Public
 
 | Port | Component | Function |
 |---|---|---|
-| 443 | Tailscale Funnel | The only public entry point; TLS terminates at Tailscale's edge |
+| 443 | Tailscale Funnel | The only public entry point. Receives HTTPS traffic from the internet and forwards it to Traefik on local port 80. |
