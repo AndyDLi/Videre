@@ -3,6 +3,7 @@ tasks/
 *.md
 !README.md
 !docs/*.md
+!.github/workflows/*.md
 
 # Environment variables
 .env

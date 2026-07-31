@@ -1,6 +1,4 @@
 # Confirms the self-hosted runner works and holds exactly the cluster access it should.
-# Triggered the same way the real deploy job will be: pushes to main only, never pull
-# requests, so code from an outside contributor's fork can never reach this machine.
 
 name: Runner Smoke Test
 
