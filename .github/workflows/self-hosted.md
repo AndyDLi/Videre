@@ -10,7 +10,9 @@ Although we could route public internet traffic through Traefik to expose the in
 
 ## Workflow
 
-To deploy securely across this private network boundary, our pipeline relies on three core mechanisms: a least-privilege deployment identity, an outbound-initiated runner execution loop, and automated RBAC verification.
+Tests, image builds, and registry pushes run on GitHub's hosted runners, only the deploy job uses the self-hosted runner. In addition, an automated smoke-test workflow executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, spawning Pods, or accessing resources outside the `videre` namespace, and asserts that Kubernetes denies every request.
+
+To deploy securely across this private network boundary, our pipeline relies on a least-privilege deployment identity and an outbound-initiated runner execution loop.
 
 ### 1. Least-Privilege Identity & Credential Management
 
@@ -25,9 +27,3 @@ Instead of GitHub initiating an inbound connection to the cluster, the self-host
 
 - The runner continuously initiates outbound requests over the internet to GitHub Actions to check for queued deployment jobs.
 - Once a scheduled job's workflow instructions and deployment artifacts are downloaded locally, the runner uses the local `videre-deployer` kubeconfig to execute `kubectl` commands directly against the private k3s API server.
-
-### 3. CI-Enforced RBAC Guardrails
-
-To prevent configuration drift and enforce least-privilege access, security boundaries are continuously tested as code:
-
-- On every push to `main`, an automated smoke-test workflow executes againts the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, spawning Pods, or accessing resources outside the `videre` namespace, and asserts that Kubernetes denies every request.
