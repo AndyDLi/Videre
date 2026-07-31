@@ -31,12 +31,13 @@ async def current_payload(redis_client: Redis) -> str:
 async def cluster_health_stream(websocket: WebSocket) -> None:
     redis_client = websocket.app.state.redis_client
     manager = websocket.app.state.connection_manager
+    settings = websocket.app.state.settings
     client_ip = websocket.client.host if websocket.client else UNKNOWN_CLIENT_IP
     
-    if not await try_acquire(redis_client, client_ip):
+    if not await try_acquire(redis_client, client_ip, settings.websocket_maximum_connections_per_client):
         await websocket.accept()    # accept before closing so the client receives close code 1013
         await websocket.close(code=RATE_LIMITED_CLOSE_CODE)
-        logger.warning("websocket refused: per-IP cap reached", extra={"client_ip": client_ip})
+        logger.warning("websocket refused: per-client cap reached", extra={"client_ip": client_ip})
         return
     
     await manager.connect(websocket)

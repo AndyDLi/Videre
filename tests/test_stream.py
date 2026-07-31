@@ -3,13 +3,11 @@ import json
 from test_cache import FakeRedis
 from videre.backend.cache.snapshot import ClusterHealthSnapshot
 from videre.backend.cache.store import write_snapshot
-from videre.backend.websocket.limits import (
-    MAXIMUM_CONNECTIONS_PER_IP,
-    connection_key,
-    release,
-    try_acquire,
-)
+from videre.backend.settings import Settings
+from videre.backend.websocket.limits import connection_key, release, try_acquire
 from videre.backend.websocket.manager import ConnectionManager
+
+MAXIMUM_CONNECTIONS = 5
 
 
 class FakeWebSocket:
@@ -85,32 +83,35 @@ async def test_disconnect_removes_the_connection() -> None:
     assert manager.connection_count == 0
 
 
-# --- Per-IP limiting ---
+# --- Per-client limiting ---
 
 
-async def test_connections_are_capped_per_ip() -> None:
+async def test_connections_are_capped_per_client() -> None:
     redis_client = CountingRedis()
-    granted = [await try_acquire(redis_client, "10.0.0.1") for _ in range(MAXIMUM_CONNECTIONS_PER_IP + 2)]
+    granted = [
+        await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
+        for _ in range(MAXIMUM_CONNECTIONS + 2)
+    ]
 
-    assert granted[:MAXIMUM_CONNECTIONS_PER_IP] == [True] * MAXIMUM_CONNECTIONS_PER_IP
-    assert granted[MAXIMUM_CONNECTIONS_PER_IP:] == [False, False]
+    assert granted[:MAXIMUM_CONNECTIONS] == [True] * MAXIMUM_CONNECTIONS
+    assert granted[MAXIMUM_CONNECTIONS:] == [False, False]
 
 
 async def test_a_refused_connection_does_not_consume_a_slot() -> None:
     redis_client = CountingRedis()
-    for _ in range(MAXIMUM_CONNECTIONS_PER_IP):
-        await try_acquire(redis_client, "10.0.0.1")
-    await try_acquire(redis_client, "10.0.0.1")
+    for _ in range(MAXIMUM_CONNECTIONS):
+        await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
+    await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
 
     await release(redis_client, "10.0.0.1")
-    assert await try_acquire(redis_client, "10.0.0.1") is True
+    assert await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS) is True
 
 
-async def test_separate_ips_have_independent_budgets() -> None:
+async def test_separate_clients_have_independent_budgets() -> None:
     redis_client = CountingRedis()
-    for _ in range(MAXIMUM_CONNECTIONS_PER_IP):
-        await try_acquire(redis_client, "10.0.0.1")
-    assert await try_acquire(redis_client, "10.0.0.2") is True
+    for _ in range(MAXIMUM_CONNECTIONS):
+        await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
+    assert await try_acquire(redis_client, "10.0.0.2", MAXIMUM_CONNECTIONS) is True
 
 
 async def test_release_never_drives_the_counter_negative() -> None:
@@ -118,6 +119,17 @@ async def test_release_never_drives_the_counter_negative() -> None:
     await release(redis_client, "10.0.0.1")
     await release(redis_client, "10.0.0.1")
     assert redis_client.counters[connection_key("10.0.0.1")] >= 0
+
+
+async def test_a_raised_cap_admits_more_connections() -> None:
+    redis_client = CountingRedis()
+    granted = [await try_acquire(redis_client, "10.0.0.1", 100) for _ in range(50)]
+    assert granted == [True] * 50
+
+
+async def test_the_cap_defaults_to_one_hundred_and_is_configurable() -> None:
+    assert Settings().websocket_maximum_connections_per_client == 100
+    assert Settings(websocket_maximum_connections_per_client=25).websocket_maximum_connections_per_client == 25
 
 
 # --- Payload shape ---

@@ -7,7 +7,6 @@ from __future__ import annotations
 from redis.asyncio import Redis
 
 CONNECTION_KEY_PREFIX = "ratelimit:websocket"
-MAXIMUM_CONNECTIONS_PER_IP = 5
 CONNECTION_KEY_TTL_SECONDS = 3600
 
 
@@ -15,11 +14,11 @@ def connection_key(client_ip: str) -> str:
     return f"{CONNECTION_KEY_PREFIX}:{client_ip}"
 
 
-async def try_acquire(redis_client: Redis, client_ip: str) -> bool:
+async def try_acquire(redis_client: Redis, client_ip: str, maximum_connections: int) -> bool:
     key = connection_key(client_ip)
     count = await redis_client.incr(key)
     await redis_client.expire(key, CONNECTION_KEY_TTL_SECONDS)
-    if count > MAXIMUM_CONNECTIONS_PER_IP:
+    if count > maximum_connections:
         await redis_client.decr(key)    # give the slot back by refusing the connection
         return False
     return True

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     ai_client_daily_limit: int = Field(default=20, gt=0)
     ai_client_minute_limit: int = Field(default=3, gt=0)
     ai_cache_ttl_seconds: int = Field(default=420, gt=0)
+    websocket_maximum_connections_per_client: int = Field(default=100, gt=0)
     cors_allowed_origins: str = "http://localhost:5173"
 
     @property
