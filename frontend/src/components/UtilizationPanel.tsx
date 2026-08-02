@@ -1,47 +1,48 @@
 import type { GpuUtilization } from '../domain/utilization';
-import { Card } from './Card';
+import { Section } from './Section';
 
 export function UtilizationPanel({ utilization }: { utilization: GpuUtilization | null }) {
     if (utilization === null) {
         return (
-            <Card title="GPU Utilization" headingLevel={3}>
+            <Section title="GPU Utilization" headingLevel={3}>
                 <p className="text-sm text-text-muted">No GPU capacity reported yet.</p>
-            </Card>
+            </Section>
         );
     }
 
+    const rows = [
+        {
+            label: 'In Use',
+            value: `${String(utilization.inUseGpus)} / ${String(utilization.totalGpus)}`,
+        },
+        { label: 'Unavailable', value: utilization.unavailableGpus },
+        { label: 'Idle but Reserved', value: utilization.idleReservedGpus },
+    ];
+
     return (
-        <Card title="GPU Utilization" headingLevel={3}>
-            <p className="text-2xl font-semibold tabular-nums">{utilization.inUsePercentage}%</p>
+        <Section title="GPU Utilization" headingLevel={3}>
+            <p className="metric text-5xl">{utilization.inUsePercentage}%</p>
             <div
-                className="mt-2 h-2 w-full overflow-hidden rounded bg-surface-muted"
+                className="mt-4 h-0.5 w-full bg-border-subtle"
                 role="progressbar"
-                aria-label="GPUs in use"
+                aria-label="GPUs In Use"
                 aria-valuenow={utilization.inUsePercentage}
                 aria-valuemin={0}
                 aria-valuemax={100}
             >
                 <div
-                    className="h-full bg-state-good"
+                    className="h-0.5 bg-state-good"
                     style={{ width: `${String(utilization.inUsePercentage)}%` }}
                 />
             </div>
-            <dl className="mt-3 space-y-1 text-sm text-text-muted">
-                <div className="flex justify-between">
-                    <dt>In Use</dt>
-                    <dd className="tabular-nums">
-                        {utilization.inUseGpus} / {utilization.totalGpus}
-                    </dd>
-                </div>
-                <div className="flex justify-between">
-                    <dt>Unavailable</dt>
-                    <dd className="tabular-nums">{utilization.unavailableGpus}</dd>
-                </div>
-                <div className="flex justify-between">
-                    <dt>Idle but Reserved</dt>
-                    <dd className="tabular-nums">{utilization.idleReservedGpus}</dd>
-                </div>
+            <dl className="mt-4 space-y-1.5 text-sm text-text-muted">
+                {rows.map((row) => (
+                    <div key={row.label} className="flex justify-between gap-3">
+                        <dt>{row.label}</dt>
+                        <dd className="tabular-nums">{row.value}</dd>
+                    </div>
+                ))}
             </dl>
-        </Card>
+        </Section>
     );
 }

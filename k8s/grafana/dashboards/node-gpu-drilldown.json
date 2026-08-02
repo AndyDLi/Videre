@@ -39,7 +39,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Health state of $node",
+      "title": "Health State",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -60,7 +60,7 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "GPU utilization on $node",
+      "title": "GPU Utilization",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -87,7 +87,7 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "GPU temperature on $node",
+      "title": "GPU Temperature",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -121,7 +121,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "GPU memory used on $node",
+      "title": "GPU Memory Used",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -147,7 +147,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Cumulative error events on $node",
+      "title": "Cumulative Error Events",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -178,7 +178,7 @@
     {
       "id": 6,
       "type": "logs",
-      "title": "Simulator log lines mentioning $node",
+      "title": "Simulator Log Lines",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [

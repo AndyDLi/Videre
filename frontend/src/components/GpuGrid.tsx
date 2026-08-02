@@ -1,25 +1,26 @@
 import { Link } from 'react-router-dom';
 
 import type { Gpu } from '../api/types';
+import { formatEntityId } from '../domain/format';
 import { HealthBadge } from './HealthBadge';
 
-interface GpuChipsProps {
+interface GpuGridProps {
     nodeId: string;
     gpus: Gpu[];
 }
 
-export function GpuChips({ nodeId, gpus }: GpuChipsProps) {
+export function GpuGrid({ nodeId, gpus }: GpuGridProps) {
     return (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-4">
             {gpus.map((gpu) => (
-                <li key={gpu.id}>
+                <li key={gpu.id} className="border-t border-border-subtle">
                     <Link
                         to={`/nodes/${nodeId}/gpus/${gpu.id}`}
-                        className="flex items-center gap-2 rounded border border-border-subtle px-2 py-1 text-xs hover:bg-surface-muted"
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 hover:bg-surface-raised"
                     >
-                        <span className="font-medium">{gpu.id}</span>
+                        <span className="identifier">{formatEntityId(gpu.id)}</span>
                         <HealthBadge state={gpu.health_state} />
-                        <span className="tabular-nums text-text-muted">
+                        <span className="ml-auto text-sm tabular-nums text-text-muted">
                             {Math.round(gpu.utilization_percentage)}% ·{' '}
                             {Math.round(gpu.temperature_celsius)}°C
                         </span>

@@ -1,0 +1,17 @@
+# Stop the default web server from hogging port 443.
+# Allows Tailscale Funnel to receive and secure incoming internet connections.
+
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: videre
+spec:
+  valuesContent: |-
+    ports:
+      websecure:
+        expose:
+          default: false

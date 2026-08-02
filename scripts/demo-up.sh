@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start the Videre demo. Run inside the WSL2 Ubuntu distro.
-# Brings k3s up, waits for the core infrastructure, then starts the simulator.
+# Brings k3s up, waits for the core infrastructure, starts the simulator, then verifies the public endpoint.
 
 set -euo pipefail
 export KUBECONFIG="$HOME/.kube/config"
@@ -30,26 +30,20 @@ kubectl -n videre rollout status deploy/simulator --timeout=120s
 
 PUBLIC_HOST="ragingasian.tail462d2b.ts.net"
 
-echo "==> Verifying public reachability..."
-edge_ip=$(curl -sS -m 10 "https://dns.google/resolve?name=${PUBLIC_HOST}&type=A" 2>/dev/null \
-  | python3 -c "import sys,json; a=[x['data'] for x in json.load(sys.stdin).get('Answer',[]) if x.get('type')==1]; print(a[0] if a else '')" 2>/dev/null || true)
-
-if [ -z "$edge_ip" ]; then
-  echo "==> Videre is up: https://${PUBLIC_HOST}"
-  echo "WARNING: could not resolve the Funnel edge, so public reachability is unverified." >&2
-  exit 0
+echo "==> Verifying the public endpoint..."
+funnel_status=$(tailscale funnel status 2>/dev/null || true)
+if ! grep -q 'Funnel on' <<<"$funnel_status"; then
+  echo "Funnel is off. Turn it back on with: sudo tailscale funnel --bg 80" >&2
+  exit 1
 fi
 
-for attempt in $(seq 1 12); do
-  code=$(curl -sS -o /dev/null -w '%{http_code}' -m 10 \
-    --resolve "${PUBLIC_HOST}:443:${edge_ip}" "https://${PUBLIC_HOST}/" 2>/dev/null || true)
-  if [ "${code}" = "200" ]; then
-    echo "==> Videre is up: https://${PUBLIC_HOST}"
-    exit 0
-  fi
-  sleep 5
-done
+code=$(curl -sS -o /dev/null -w '%{http_code}' -m 15 \
+  --resolve "${PUBLIC_HOST}:443:$(tailscale ip -4 | head -1)" \
+  "https://${PUBLIC_HOST}/" 2>/dev/null || true)
 
-echo "WARNING: the stack is running, but https://${PUBLIC_HOST} returned ${code:-000} via ${edge_ip}." >&2
-echo "         Recover the tunnel with: sudo tailscale funnel reset && sudo tailscale funnel --bg 80" >&2
-exit 1
+if [ "${code}" != "200" ]; then
+  echo "The stack is running, but the public path returned ${code:-000}." >&2
+  exit 1
+fi
+
+echo "==> Videre is up: https://${PUBLIC_HOST}"

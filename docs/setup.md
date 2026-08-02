@@ -55,7 +55,7 @@ default=andyd
 
 ## Manual Startup (WSL and k3s)
 
-To ensure Videre only runs when explicitly started, disable k2s auto-start:
+To ensure Videre only runs when explicitly started, disable k3s auto-start:
 
   ```bash
   sudo systemctl disable k3s
@@ -65,10 +65,10 @@ Opening the Ubuntu terminal will still boot the WSL VM on demand. While the ligh
 
 ## Starting and Stopping the Demo
 
-Two helper scripts in `scripts/` directory manage the application lifecycle from within the cluster.
+Two helper scripts in the `scripts/` directory manage the application lifecycle from within the cluster.
 
 - Startup (`demo-up.sh`): starts k3s, waits for core infrastructure to initialize, and scales the simulator to 1.
-- Shutdown (`demo-down.sh`): scales the simulator to 0, which triggers a SIGTERM handler that gracefully flushess in-flight Kafka events, before stopping k3s.
+- Shutdown (`demo-down.sh`): scales the simulator to 0, which triggers a SIGTERM handler that gracefully flushes in-flight Kafka events, before stopping k3s.
 
 **To Start the Demo:**
 
@@ -78,13 +78,15 @@ Two helper scripts in `scripts/` directory manage the application lifecycle from
 **To Stop the Demo:**
 
 1. Execute `./scripts/demo-down.sh`.
-2. From Windows PowerShell, release the VM's memory: `wsl --shutdown`.
+2. From Windows PowerShell, take the demo offline and release the VM's memory: `wsl --shutdown`.
+
+Both steps are needed. Stopping k3s leaves the containers themselves running, so the public URL keeps serving until WSL shuts down.
 
 ## Tailscale and Funnel
 
 Videre's public endpoint is: `https://ragingasian.tail462d2b.ts.net`.
 
-Tailscale Funnel exposes the selected local service through Tailscale's HTTPS edge. Funnel supports public exposure on ports 443/8443/10000; TLS terminates at Tailscale's edge, and Funnel bandwidth limits are managed by Tailscale rather than configured locally.
+Tailscale Funnel exposes the selected local service through Tailscale's HTTPS edge. Funnel supports public exposure on ports 443/8443/10000; TLS terminates on this machine, using a certificate that Tailscale issues and renews automatically, and Funnel bandwidth limits are managed by Tailscale rather than configured locally.
 
 - Install Tailscale inside Ubuntu: `curl -fsSL https://tailscale.com/install.sh | sh`.
 - Then `sudo tailscale up` and complete the browser-based authentication flow.
@@ -105,25 +107,26 @@ sudo tailscale funnel --bg 80
 
 - `--bg` runs Funnel as a background service and stores the configuration inside `tailscaled`, so it survives service restarts and host reboots without being entered again.
 - The forwarding target is `127.0.0.1:80`.
-- The target is Traefik's plain HTTP port rather than its HTTPS port because TLS already terminates at Tailscale's edge. Forwarding to HTTPS would only add a second, self-signed handshake across the loopback interface and protect nothing.
+- The target is Traefik's plain HTTP port rather than its HTTPS port because `tailscaled` has already terminated TLS. Forwarding to HTTPS would only add a second, self-signed handshake across the loopback interface and protect nothing.
+- Traefik's own HTTPS port stays disabled (`k8s/traefik/01-helmchartconfig.yaml`) so that k3s cannot claim port 443. If it does, it intercepts the Funnel's traffic and the public URL serves Traefik's self-signed certificate.
 
 Inspect the active configuration with `tailscale funnel status`, and remove it with `sudo tailscale funnel reset`.
 
-While the stack is stopped, the public URL returns `502 Bad Gateway` because nothing is listening behind port 80. This is expected under the on-demand availability model, and the Funnel configuration itself stays in place.
+Once WSL has shut down, the public URL returns `502 Bad Gateway` because nothing is listening behind port 80. This is expected under the on-demand availability model, and the Funnel configuration itself stays in place.
 
 ## Baseline Idle Usage
 
-These measurements establish the host's pre-stack baseline. Compare future measurements against them to estimate the actual foorprint of Videre after deployment, which is expected to use approximately 3 to 5 GB of additional memory and sroage depending on workloads, images, and retained data.
+These measurements establish the host's pre-stack baseline. Compare future measurements against them to estimate the actual footprint of Videre after deployment, which is expected to use approximately 3 to 5 GB of additional memory and storage depending on workloads, images, and retained data.
 
 | Measure | Value |
 |---|---|
-| Idle distribution memory usgae | 1.4Gi of 7.8Gi |
+| Idle distribution memory usage | 1.4Gi of 7.8Gi |
 | Distribution disk usage (`df -h /`) | 21G used, 936G free |
 | Windows-side VHDX size | 29.5GB, sparse |
 
 The current VHDX path is: `C:\Users\andyd\AppData\Local\wsl\{12b8dd3b-529a-41dc-80f5-ec8372af710d}\ext4.vhdx`.
 
-The distribution GUID changes after a reinstall. Locate the activate Ubuntu 24.04 VHDX with:
+The distribution GUID changes after a reinstall. Locate the active Ubuntu 24.04 VHDX with:
 
 ```powershell
 Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss |

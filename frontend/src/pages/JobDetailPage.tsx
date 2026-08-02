@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getJob } from '../api/endpoints';
-import { Card } from '../components/Card';
+import { Section } from '../components/Section';
 import { DetailFallback } from '../components/DetailFallback';
 import { DetailList } from '../components/DetailList';
 import { EntityFailures } from '../components/EntityFailures';
 import { EntityHeader } from '../components/EntityHeader';
 import { GrafanaPanel } from '../components/GrafanaPanel';
-import { formatTimestamp } from '../domain/format';
+import { formatEntityId, formatTimestamp } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
 const REFRESH_INTERVAL_MILLISECONDS = 15_000;
@@ -34,18 +34,13 @@ export function JobDetailPage() {
     const [firstAssignedNodeId] = job.assigned_node_ids;
 
     return (
-        <section className="space-y-4">
-            <EntityHeader
-                title={`Job ${job.id}`}
-                state={job.lifecycle_state}
-                entityType="job"
-                entityId={job.id}
-            />
+        <section className="space-y-12">
+            <EntityHeader state={job.lifecycle_state} entityType="job" entityId={job.id} />
 
-            <Card title="Current State">
+            <Section title="Current State">
                 <DetailList
                     details={[
-                        { label: 'Cluster', value: job.cluster_id },
+                        { label: 'Cluster', value: formatEntityId(job.cluster_id) },
                         { label: 'Priority', value: job.priority },
                         { label: 'Requested CPU Cores', value: job.requested_cpu_cores },
                         {
@@ -53,7 +48,15 @@ export function JobDetailPage() {
                             value: `${String(job.requested_memory_gb)} GB`,
                         },
                         { label: 'Requested GPUs', value: job.requested_gpu_count },
-                        { label: 'Pod Name', value: job.pod_name ?? 'not scheduled yet' },
+                        {
+                            label: 'Pod Name',
+                            value:
+                                job.pod_name === null ? (
+                                    'not scheduled yet'
+                                ) : (
+                                    <span className="identifier">{job.pod_name}</span>
+                                ),
+                        },
                         { label: 'Failure Reason', value: job.failure_reason ?? 'none' },
                         { label: 'Created', value: formatTimestamp(job.created_at) },
                         {
@@ -72,9 +75,9 @@ export function JobDetailPage() {
                         },
                     ]}
                 />
-            </Card>
+            </Section>
 
-            <Card title="Assigned Nodes">
+            <Section title="Assigned Nodes">
                 {job.assigned_node_ids.length === 0 ? (
                     <p className="text-sm text-text-muted">
                         This job has not been placed on a node yet.
@@ -85,29 +88,29 @@ export function JobDetailPage() {
                             <li key={assignedNodeId}>
                                 <Link
                                     to={`/nodes/${assignedNodeId}`}
-                                    className="rounded border border-border-subtle px-2 py-1 text-xs font-medium hover:bg-surface-muted"
+                                    className="identifier inline-block rounded-[3px] border border-border-strong px-2.5 py-1 hover:bg-surface-raised"
                                 >
-                                    {assignedNodeId}
+                                    {formatEntityId(assignedNodeId)}
                                 </Link>
                             </li>
                         ))}
                     </ul>
                 )}
-            </Card>
+            </Section>
 
             {firstAssignedNodeId !== undefined && (
-                <Card title={`GPU Utilization on ${firstAssignedNodeId}`}>
+                <Section title={`GPU Utilization on ${formatEntityId(firstAssignedNodeId)}`}>
                     <GrafanaPanel
-                        title={`GPU utilization on ${firstAssignedNodeId}`}
+                        title={`GPU Utilization on ${formatEntityId(firstAssignedNodeId)}`}
                         panel="gpuUtilization"
                         nodeId={firstAssignedNodeId}
                     />
-                </Card>
+                </Section>
             )}
 
-            <Card title="Recent Failures">
+            <Section title="Recent Failures">
                 <EntityFailures entityType="job" entityId={job.id} />
-            </Card>
+            </Section>
         </section>
     );
 }

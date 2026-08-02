@@ -24,13 +24,14 @@ export function GrafanaPanel({ title, panel, nodeId, gpuId }: GrafanaPanelProps)
         from: 'now-3h',
         to: 'now',
         refresh: '15s',
+        theme: 'light',
     });
 
     return (
         <iframe
             title={title}
             src={`${grafanaBaseUrl}/${DASHBOARD_PATH}?${parameters.toString()}`}
-            className="h-64 w-full rounded border border-border-subtle"
+            className="h-64 w-full border border-border-subtle"
         />
     );
 }

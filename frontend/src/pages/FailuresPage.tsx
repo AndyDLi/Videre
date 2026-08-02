@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 
 import { listFailures } from '../api/endpoints';
 import type { EntityType } from '../api/types';
-import { Card } from '../components/Card';
 import { FailureRecordEntry } from '../components/FailureRecordEntry';
 import { LoadingOrError } from '../components/LoadingOrError';
+import { PageHeading } from '../components/PageHeading';
+import { Section } from '../components/Section';
 import { drillDownPath } from '../domain/entityLinks';
+import { formatEntityId, formatTerm } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
 const PAGE_SIZE = 25;
@@ -37,9 +39,8 @@ const TIME_RANGE_OPTIONS: { hours: number; label: string }[] = [
 ];
 
 const SELECT_CLASSES =
-    'rounded border border-border-subtle bg-surface px-2 py-1 text-sm text-text-primary';
-const PAGE_BUTTON_CLASSES =
-    'rounded border border-border-subtle px-3 py-1 text-sm font-medium hover:bg-surface-muted disabled:opacity-40';
+    'rounded-[3px] border border-border-strong bg-transparent px-2 py-1.5 font-display text-sm font-semibold text-text-primary';
+const PAGE_BUTTON_CLASSES = 'control hover:bg-surface-raised disabled:opacity-35';
 
 export function FailuresPage() {
     const [entityType, setEntityType] = useState<EntityTypeFilter>('all');
@@ -69,12 +70,16 @@ export function FailuresPage() {
     const { data, error, isLoading } = useApiResource(fetcher, REFRESH_INTERVAL_MILLISECONDS);
 
     return (
-        <section className="space-y-4">
-            <h1 className="text-xl font-semibold">Failed Jobs &amp; Unavailable Nodes</h1>
+        <section>
+            <PageHeading
+                eyebrow="Incident Log"
+                title="Failed Jobs & Unavailable Nodes"
+                description="Every failure record the cluster has raised, newest first, within the three-day retention window."
+            />
 
-            <div className="flex flex-wrap gap-3">
-                <label className="text-sm">
-                    <span className="mr-2 text-text-muted">Entity Type</span>
+            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t border-border-subtle pt-5">
+                <label className="flex flex-col gap-1.5">
+                    <span className="eyebrow text-accent">Entity Type</span>
                     <select
                         className={SELECT_CLASSES}
                         value={entityType}
@@ -91,8 +96,8 @@ export function FailuresPage() {
                     </select>
                 </label>
 
-                <label className="text-sm">
-                    <span className="mr-2 text-text-muted">Status</span>
+                <label className="flex flex-col gap-1.5">
+                    <span className="eyebrow text-accent">Status</span>
                     <select
                         className={SELECT_CLASSES}
                         value={status}
@@ -109,8 +114,8 @@ export function FailuresPage() {
                     </select>
                 </label>
 
-                <label className="text-sm">
-                    <span className="mr-2 text-text-muted">Time Range</span>
+                <label className="flex flex-col gap-1.5">
+                    <span className="eyebrow text-accent">Time Range</span>
                     <select
                         className={SELECT_CLASSES}
                         value={sinceHours}
@@ -128,39 +133,45 @@ export function FailuresPage() {
                 </label>
             </div>
 
-            <Card>
-                {data === null ? (
-                    <LoadingOrError isLoading={isLoading} error={error} subject="failures" />
-                ) : data.items.length === 0 ? (
-                    <p className="text-sm text-text-muted">
-                        No failure records match these filters.
-                    </p>
-                ) : (
-                    <ul className="divide-y divide-border-subtle">
-                        {data.items.map((record) => {
-                            const path = drillDownPath(record.entity_type, record.entity_id);
-                            return (
-                                <FailureRecordEntry key={record.id} record={record}>
-                                    {path === null ? (
-                                        <span className="font-medium">{record.entity_id}</span>
-                                    ) : (
-                                        <Link to={path} className="font-medium hover:underline">
-                                            {record.entity_id}
-                                        </Link>
-                                    )}
-                                    <span className="text-xs uppercase text-text-muted">
-                                        {record.entity_type}
-                                    </span>
-                                    <span className="text-sm">{record.root_cause_tag}</span>
-                                </FailureRecordEntry>
-                            );
-                        })}
-                    </ul>
-                )}
-            </Card>
+            <div className="mt-10">
+                <Section>
+                    {data === null ? (
+                        <LoadingOrError isLoading={isLoading} error={error} subject="failures" />
+                    ) : data.items.length === 0 ? (
+                        <p className="text-sm text-text-muted">
+                            No failure records match these filters.
+                        </p>
+                    ) : (
+                        <ul className="divide-y divide-border-subtle border-b border-border-subtle">
+                            {data.items.map((record) => {
+                                const path = drillDownPath(record.entity_type, record.entity_id);
+                                return (
+                                    <FailureRecordEntry key={record.id} record={record}>
+                                        {path === null ? (
+                                            <span className="identifier">
+                                                {formatEntityId(record.entity_id)}
+                                            </span>
+                                        ) : (
+                                            <Link to={path} className="entity-link">
+                                                {formatEntityId(record.entity_id)}
+                                            </Link>
+                                        )}
+                                        <span className="eyebrow text-text-muted">
+                                            {record.entity_type}
+                                        </span>
+                                        <span className="text-sm">
+                                            {formatTerm(record.root_cause_tag)}
+                                        </span>
+                                    </FailureRecordEntry>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </Section>
+            </div>
 
             {data !== null && data.items.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="mt-6 flex flex-wrap items-center gap-3">
                     <span className="text-sm text-text-muted">
                         Showing {data.offset + 1}–{data.offset + data.items.length} of {data.total}
                     </span>

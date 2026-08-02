@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stop the Videre demo. Run inside the WSL2 Ubuntu distro.
-# Flushes and stops the simulator, then stops k3s. Afterward run
-# `wsl --shutdown` from Windows to return the VM's memory to Windows.
+# Flushes and stops the simulator, then stops k3s. The containers keep running until
+# `wsl --shutdown` is run from Windows to take the demo offline and return VM's memory.
 
 set -euo pipefail
 export KUBECONFIG="$HOME/.kube/config"
@@ -15,4 +15,4 @@ fi
 echo "==> Stopping k3s..."
 sudo systemctl stop k3s
 
-echo "==> Videre is down. Run 'wsl --shutdown' from Windows PowerShell to free the VM's RAM."
+echo "==> k3s stopped. Run 'wsl --shutdown' from Windows PowerShell to take Videre offline and free the VM's RAM."

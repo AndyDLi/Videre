@@ -1,29 +1,121 @@
 @import 'tailwindcss';
 
-@theme {
-    --color-surface: #ffffff;
-    --color-surface-muted: #f4f5f7;
-    --color-border-subtle: #d8dbe0;
-    --color-text-primary: #16181d;
-    --color-text-muted: #5c6270;
+@font-face {
+    font-family: 'Lora';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/fonts/lora-latin-variable.woff2') format('woff2');
+}
 
-    --color-state-good: #157f4a;
-    --color-state-warning: #9a6700;
-    --color-state-bad: #b02a2a;
-    --color-state-neutral: #5c6270;
+@font-face {
+    font-family: 'Cormorant Garamond';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('/fonts/cormorant-garamond-latin-variable.woff2') format('woff2');
+}
+
+@theme {
+    --color-surface: #f3f2f2;
+    --color-surface-raised: #eae9e9;
+    --color-border-subtle: #d3d1d0;
+    --color-border-strong: #b9b6b3;
+    --color-text-primary: #201f1d;
+    --color-text-secondary: #4f4d4a;
+    --color-text-muted: #6f6c68;
+    --color-accent: #7d5411;
+    --color-accent-border: #b68235;
+
+    --color-state-good: #3d6149;
+    --color-state-warning: #8a5d10;
+    --color-state-bad: #8c322c;
+    --color-state-neutral: #5f5c58;
+
+    --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --font-display--font-feature-settings: 'lnum' 1;
+    --font-body: 'Lora', Georgia, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+    --tracking-eyebrow: 0.14em;
+    --tracking-display: -0.022em;
 }
 
 body {
     margin: 0;
-    background-color: var(--color-surface-muted);
+    background-color: var(--color-surface);
+    color: var(--color-text-secondary);
+    color-scheme: light;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+@utility eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+}
+
+@utility display-title {
+    font-family: var(--font-display);
+    font-feature-settings: 'lnum' 1;
+    font-weight: 400;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
     color: var(--color-text-primary);
-    font-family:
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        'Segoe UI',
-        Roboto,
-        Helvetica,
-        Arial,
-        sans-serif;
+}
+
+@utility metric {
+    font-family: var(--font-display);
+    font-feature-settings:
+        'lnum' 1,
+        'tnum' 1;
+    font-weight: 300;
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--color-text-primary);
+}
+
+@utility identifier {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+}
+
+@utility entity-link {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+    text-decoration-line: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: 4px;
+
+    @media (hover: hover) {
+        &:hover {
+            text-decoration-color: var(--color-accent-border);
+        }
+    }
+}
+
+@utility control {
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    border-radius: 4px;
+    border: 1px solid var(--color-border-strong);
+    padding: 0.5rem 1.0625rem;
+    background-color: transparent;
+}
+
+:where(a, button, select, input):focus-visible {
+    outline: 1px solid var(--color-accent-border);
+    outline-offset: 2px;
 }

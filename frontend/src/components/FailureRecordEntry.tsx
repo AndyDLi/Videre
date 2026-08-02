@@ -10,11 +10,11 @@ interface FailureRecordEntryProps {
 
 export function FailureRecordEntry({ record, children }: FailureRecordEntryProps) {
     return (
-        <li className="py-3">
+        <li className="py-3.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 {children}
                 <span
-                    className={`ml-auto text-sm font-medium ${record.resolved_at === null ? 'text-state-bad' : 'text-text-muted'}`}
+                    className={`eyebrow ml-auto ${record.resolved_at === null ? 'text-state-bad' : 'text-text-muted'}`}
                 >
                     {record.resolved_at === null ? 'Unresolved' : 'Resolved'}
                 </span>

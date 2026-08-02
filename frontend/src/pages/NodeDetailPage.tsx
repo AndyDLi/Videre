@@ -2,14 +2,14 @@ import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { getNode } from '../api/endpoints';
-import { Card } from '../components/Card';
+import { Section } from '../components/Section';
 import { DetailFallback } from '../components/DetailFallback';
 import { DetailList } from '../components/DetailList';
 import { EntityFailures } from '../components/EntityFailures';
 import { EntityHeader } from '../components/EntityHeader';
-import { GpuChips } from '../components/GpuChips';
+import { GpuGrid } from '../components/GpuGrid';
 import { GrafanaPanel } from '../components/GrafanaPanel';
-import { formatTimestamp } from '../domain/format';
+import { formatEntityId, formatTimestamp } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
 const REFRESH_INTERVAL_MILLISECONDS = 15_000;
@@ -33,57 +33,52 @@ export function NodeDetailPage() {
     }
 
     return (
-        <section className="space-y-4">
-            <EntityHeader
-                title={`Node ${node.id}`}
-                state={node.health_state}
-                entityType="node"
-                entityId={node.id}
-            />
+        <section className="space-y-12">
+            <EntityHeader state={node.health_state} entityType="node" entityId={node.id} />
 
-            <Card title="Current State">
+            <Section title="Current State">
                 <DetailList
                     details={[
-                        { label: 'Cluster', value: node.cluster_id },
+                        { label: 'Cluster', value: formatEntityId(node.cluster_id) },
                         { label: 'CPU Cores', value: node.cpu_cores },
                         { label: 'Memory', value: `${String(node.memory_gb)} GB` },
                         { label: 'GPU Count', value: node.gpu_count },
                         { label: 'Last Updated', value: formatTimestamp(node.updated_at) },
                     ]}
                 />
-            </Card>
+            </Section>
 
-            <Card title="GPUs">
-                <GpuChips nodeId={node.id} gpus={node.gpus} />
-            </Card>
+            <Section title="GPUs">
+                <GpuGrid nodeId={node.id} gpus={node.gpus} />
+            </Section>
 
-            <Card title="Health State History">
+            <Section title="Health State History">
                 <GrafanaPanel
-                    title={`Health state of ${node.id}`}
+                    title={`Health State of ${formatEntityId(node.id)}`}
                     panel="nodeHealthState"
                     nodeId={node.id}
                 />
-            </Card>
+            </Section>
 
-            <Card title="GPU Utilization">
+            <Section title="GPU Utilization">
                 <GrafanaPanel
-                    title={`GPU utilization on ${node.id}`}
+                    title={`GPU Utilization on ${formatEntityId(node.id)}`}
                     panel="gpuUtilization"
                     nodeId={node.id}
                 />
-            </Card>
+            </Section>
 
-            <Card title="GPU Temperature">
+            <Section title="GPU Temperature">
                 <GrafanaPanel
-                    title={`GPU temperature on ${node.id}`}
+                    title={`GPU Temperature on ${formatEntityId(node.id)}`}
                     panel="gpuTemperature"
                     nodeId={node.id}
                 />
-            </Card>
+            </Section>
 
-            <Card title="Recent Failures">
+            <Section title="Recent Failures">
                 <EntityFailures entityType="node" entityId={node.id} />
-            </Card>
+            </Section>
         </section>
     );
 }

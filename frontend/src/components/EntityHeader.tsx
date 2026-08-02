@@ -1,30 +1,37 @@
 import { useState } from 'react';
 
 import type { EntityType } from '../api/types';
+import { formatEntityId } from '../domain/format';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { HealthBadge } from './HealthBadge';
 
 interface EntityHeaderProps {
-    title: string;
     state: string;
     entityType: EntityType;
     entityId: string;
 }
 
-export function EntityHeader({ title, state, entityType, entityId }: EntityHeaderProps) {
+export function EntityHeader({ state, entityType, entityId }: EntityHeaderProps) {
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
     return (
         <>
-            <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-xl font-semibold">{title}</h1>
-                <HealthBadge state={state} />
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+                <div>
+                    <p className="eyebrow text-accent">{entityId}</p>
+                    <h1 className="display-title mt-2 text-4xl sm:text-5xl">
+                        {formatEntityId(entityId)}
+                    </h1>
+                    <div className="mt-3">
+                        <HealthBadge state={state} />
+                    </div>
+                </div>
                 <button
                     type="button"
                     onClick={() => {
                         setIsAssistantOpen(true);
                     }}
-                    className="ml-auto rounded border border-border-subtle bg-surface px-3 py-1 text-sm font-medium hover:bg-surface-muted"
+                    className="control border-accent-border text-accent hover:bg-surface-raised"
                 >
                     Ask the AI Assistant
                 </button>

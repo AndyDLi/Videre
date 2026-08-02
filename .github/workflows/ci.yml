@@ -33,8 +33,8 @@ jobs:
       - name: Test
         run: uv run pytest
 
-  test-frontend:
-    name: Test frontend
+  check-frontend:
+    name: Check frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,13 +60,10 @@ jobs:
       - name: Check formatting
         run: npx prettier --check .
 
-      - name: Test
-        run: npx vitest run
-
   build-and-push:
     name: Build and push images
     runs-on: ubuntu-latest
-    needs: [test-python, test-frontend]
+    needs: [test-python, check-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read

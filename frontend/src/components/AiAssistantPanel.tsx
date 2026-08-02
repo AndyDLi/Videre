@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import type { ApiError } from '../api/client';
 import { analyzeEntity } from '../api/endpoints';
 import type { EntityType } from '../api/types';
+import { formatEntityId } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
 const SECONDS_PER_MINUTE = 60;
@@ -13,9 +14,9 @@ function retryLabel(seconds: number): string {
         return `Try again in ${String(seconds)} seconds.`;
     }
     if (seconds < SECONDS_PER_HOUR) {
-        return `Try again in ${String(Math.max(Math.round(seconds / SECONDS_PER_MINUTE), 1))} minutes.`;
+        return `Try again in ${String(Math.round(seconds / SECONDS_PER_MINUTE))} minutes.`;
     }
-    return `Try again in ${String(Math.max(Math.round(seconds / SECONDS_PER_HOUR), 1))} hours.`;
+    return `Try again in ${String(Math.round(seconds / SECONDS_PER_HOUR))} hours.`;
 }
 
 function errorMessage(error: ApiError, entityType: EntityType): string {
@@ -54,11 +55,11 @@ export function AiAssistantPanel({ entityType, entityId, onClose }: AiAssistantP
 
     return (
         <section
-            aria-label={`AI analysis of ${entityType} ${entityId}`}
-            className="rounded border border-border-subtle bg-surface p-4"
+            aria-label={`AI Analysis of ${formatEntityId(entityId)}`}
+            className="border border-border-subtle p-6 sm:p-8"
         >
-            <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-sm font-semibold">AI Analysis — {entityId}</h2>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <h2 className="eyebrow text-accent">AI Analysis — {formatEntityId(entityId)}</h2>
                 {analysis?.from_cache === true && (
                     <span className="text-xs text-text-muted">
                         {cacheLabel(analysis.cache_age_seconds)}
@@ -67,34 +68,36 @@ export function AiAssistantPanel({ entityType, entityId, onClose }: AiAssistantP
                 <button
                     type="button"
                     onClick={onClose}
-                    className="ml-auto rounded border border-border-subtle px-2 py-1 text-xs font-medium hover:bg-surface-muted"
+                    className="eyebrow ml-auto text-text-muted hover:text-accent"
                 >
                     Close
                 </button>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-4 max-w-3xl">
                 {isLoading && (
-                    <p role="status" className="text-sm text-text-muted">
+                    <p role="status" className="text-text-muted">
                         Analyzing this {entityType}…
                     </p>
                 )}
 
                 {error !== null && (
-                    <p
-                        className={`text-sm ${error.status === 429 ? 'text-state-warning' : 'text-state-bad'}`}
-                    >
+                    <p className={error.status === 429 ? 'text-state-warning' : 'text-state-bad'}>
                         {errorMessage(error, entityType)}
                     </p>
                 )}
 
                 {analysis !== null && (
                     <>
-                        <p className="text-sm">{analysis.summary}</p>
+                        <p className="font-display text-xl leading-relaxed text-text-primary">
+                            {analysis.summary}
+                        </p>
                         {analysis.next_steps.length > 0 && (
                             <>
-                                <h3 className="mt-3 text-sm font-semibold">Suggested Next Steps</h3>
-                                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm">
+                                <h3 className="eyebrow mt-7 border-t border-border-subtle pt-4 text-accent">
+                                    Suggested Next Steps
+                                </h3>
+                                <ol className="mt-3 list-[decimal-leading-zero] space-y-2.5 pl-9 marker:font-body marker:text-[0.6875rem] marker:text-accent">
                                     {analysis.next_steps.map((step, position) => (
                                         <li key={position}>{step}</li>
                                     ))}
