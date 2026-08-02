@@ -1,5 +1,6 @@
 import type { GpuHealthState, JobLifecycleState, NodeHealthState } from '../api/types';
-import type { HealthTone } from './clusterHealth';
+
+export type HealthTone = 'good' | 'warning' | 'bad' | 'neutral';
 
 type EntityState = NodeHealthState | GpuHealthState | JobLifecycleState;
 

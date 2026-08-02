@@ -1,17 +1,38 @@
 import { useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import type { ApiError } from '../api/client';
 import { getNode } from '../api/endpoints';
-import { Card } from '../components/Card';
+import type { NodeDetail } from '../api/types';
+import { Section } from '../components/Section';
 import { DetailFallback } from '../components/DetailFallback';
 import { DetailList } from '../components/DetailList';
 import { EntityFailures } from '../components/EntityFailures';
 import { EntityHeader } from '../components/EntityHeader';
 import { GrafanaPanel } from '../components/GrafanaPanel';
-import { formatTimestamp } from '../domain/format';
+import { formatEntityId, formatTimestamp } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
 const REFRESH_INTERVAL_MILLISECONDS = 15_000;
+
+function fallbackMessage(
+    isLoading: boolean,
+    node: NodeDetail | null,
+    error: ApiError | null,
+    nodeId: string,
+    gpuId: string,
+): string {
+    if (isLoading) {
+        return 'Loading this GPU…';
+    }
+    if (node !== null) {
+        return `${formatEntityId(nodeId)} has no GPU with the id ${gpuId}.`;
+    }
+    if (error?.status === 404) {
+        return `No node with the id ${nodeId} exists.`;
+    }
+    return `Could not load this GPU — ${error?.detail ?? 'unknown error'}`;
+}
 
 export function GpuDetailPage() {
     const { nodeId = '', gpuId = '' } = useParams<{ nodeId: string; gpuId: string }>();
@@ -23,37 +44,23 @@ export function GpuDetailPage() {
     if (gpu === null) {
         return (
             <DetailFallback title={`GPU ${gpuId}`}>
-                {isLoading
-                    ? 'Loading this GPU…'
-                    : node !== null
-                      ? `Node ${nodeId} has no GPU with the id ${gpuId}.`
-                      : error?.status === 404
-                        ? `No node with the id ${nodeId} exists.`
-                        : `Could not load this GPU — ${error?.detail ?? 'unknown error'}`}
+                {fallbackMessage(isLoading, node, error, nodeId, gpuId)}
             </DetailFallback>
         );
     }
 
     return (
-        <section className="space-y-4">
-            <EntityHeader
-                title={`GPU ${gpu.id}`}
-                state={gpu.health_state}
-                entityType="gpu"
-                entityId={gpu.id}
-            />
+        <section className="space-y-12">
+            <EntityHeader state={gpu.health_state} entityType="gpu" entityId={gpu.id} />
 
-            <Card title="Current State">
+            <Section title="Current State">
                 <DetailList
                     details={[
                         {
                             label: 'Node',
                             value: (
-                                <Link
-                                    to={`/nodes/${gpu.node_id}`}
-                                    className="font-medium hover:underline"
-                                >
-                                    {gpu.node_id}
+                                <Link to={`/nodes/${gpu.node_id}`} className="entity-link">
+                                    {formatEntityId(gpu.node_id)}
                                 </Link>
                             ),
                         },
@@ -75,29 +82,29 @@ export function GpuDetailPage() {
                         { label: 'Last Updated', value: formatTimestamp(gpu.last_updated_at) },
                     ]}
                 />
-            </Card>
+            </Section>
 
-            <Card title="Utilization">
+            <Section title="Utilization">
                 <GrafanaPanel
-                    title={`Utilization of ${gpu.id}`}
+                    title={`Utilization of ${formatEntityId(gpu.id)}`}
                     panel="gpuUtilization"
                     nodeId={gpu.node_id}
                     gpuId={gpu.id}
                 />
-            </Card>
+            </Section>
 
-            <Card title="Temperature">
+            <Section title="Temperature">
                 <GrafanaPanel
-                    title={`Temperature of ${gpu.id}`}
+                    title={`Temperature of ${formatEntityId(gpu.id)}`}
                     panel="gpuTemperature"
                     nodeId={gpu.node_id}
                     gpuId={gpu.id}
                 />
-            </Card>
+            </Section>
 
-            <Card title="Recent Failures">
+            <Section title="Recent Failures">
                 <EntityFailures entityType="gpu" entityId={gpu.id} />
-            </Card>
+            </Section>
         </section>
     );
 }

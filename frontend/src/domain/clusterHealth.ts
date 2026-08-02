@@ -1,6 +1,5 @@
 import type { ClusterHealthSnapshot } from '../api/types';
-
-export type HealthTone = 'good' | 'warning' | 'bad' | 'neutral';
+import type { HealthTone } from './healthState';
 
 interface OverallHealth {
     tone: HealthTone;
@@ -23,7 +22,7 @@ function sumAcross(
 
 export function summarizeClusterHealth(snapshots: ClusterHealthSnapshot[]): OverallHealth {
     if (snapshots.length === 0) {
-        return { tone: 'neutral', label: 'NO CLUSTERS', detail: 'no cluster data yet' };
+        return { tone: 'neutral', label: 'No Clusters', detail: 'no cluster data yet' };
     }
 
     const affectedNodes = sumAcross(snapshots, (snapshot) =>
@@ -40,13 +39,13 @@ export function summarizeClusterHealth(snapshots: ClusterHealthSnapshot[]): Over
     if (affectedNodes === 0 && affectedGpus === 0 && unresolvedFailures === 0) {
         return {
             tone: 'good',
-            label: 'HEALTHY',
+            label: 'Healthy',
             detail: `${String(snapshots.length)} cluster(s) nominal`,
         };
     }
 
     const detail = `${String(affectedNodes)} nodes, ${String(affectedGpus)} GPUs affected · ${String(unresolvedFailures)} unresolved`;
     return affectedNodes > 0
-        ? { tone: 'bad', label: 'DEGRADED', detail }
-        : { tone: 'warning', label: 'WARNING', detail };
+        ? { tone: 'bad', label: 'Degraded', detail }
+        : { tone: 'warning', label: 'Warning', detail };
 }

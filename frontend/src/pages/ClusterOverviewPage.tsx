@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 
 import { getCapacity } from '../api/endpoints';
-import { Card } from '../components/Card';
 import { JobList } from '../components/JobList';
 import { NodeList } from '../components/NodeList';
+import { PageHeading } from '../components/PageHeading';
+import { Section } from '../components/Section';
 import { StateCounts } from '../components/StateCounts';
 import { UtilizationPanel } from '../components/UtilizationPanel';
+import { formatEntityId } from '../domain/format';
 import { deriveGpuUtilization } from '../domain/utilization';
 import { useApiResource } from '../hooks/useApiResource';
 import type { ConnectionStatus } from '../hooks/useClusterHealthStream';
@@ -38,8 +40,8 @@ export function ClusterOverviewPage() {
     if (snapshots === null) {
         return (
             <section>
-                <h1 className="text-xl font-semibold">Cluster Overview</h1>
-                <p className="mt-4 text-sm text-text-muted">
+                <PageHeading eyebrow="Real-Time Health" title="Cluster Overview" />
+                <p className="mt-6 text-text-muted">
                     {error === null ? 'Loading cluster health…' : `Unavailable — ${error.detail}`}
                 </p>
             </section>
@@ -47,26 +49,28 @@ export function ClusterOverviewPage() {
     }
 
     return (
-        <section className="space-y-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h1 className="text-xl font-semibold">Cluster Overview</h1>
-                <span
-                    className={`text-sm font-medium ${STATUS_CLASSES[connectionStatus]}`}
-                    role="status"
-                >
-                    {STATUS_TEXT[connectionStatus]}
-                </span>
-            </div>
+        <section>
+            <PageHeading
+                eyebrow="Real-Time Health"
+                title="Cluster Overview"
+                aside={
+                    <span className={`eyebrow ${STATUS_CLASSES[connectionStatus]}`} role="status">
+                        {STATUS_TEXT[connectionStatus]}
+                    </span>
+                }
+            />
 
             {snapshots.map((snapshot) => (
-                <div key={snapshot.cluster_id} className="space-y-3">
-                    <div>
-                        <h2 className="text-lg font-semibold">{snapshot.cluster_name}</h2>
-                        <p className="mt-1 text-sm text-text-muted">
+                <div key={snapshot.cluster_id} className="mt-12">
+                    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                        <h2 className="display-title text-3xl">
+                            {formatEntityId(snapshot.cluster_name)}
+                        </h2>
+                        <p className="text-sm text-text-muted">
                             {snapshot.unresolved_failure_count} unresolved failures
                         </p>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="mt-8 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
                         <StateCounts title="Nodes" counts={snapshot.nodes_by_health_state} />
                         <StateCounts title="GPUs" counts={snapshot.gpus_by_health_state} />
                         <StateCounts title="Jobs" counts={snapshot.jobs_by_lifecycle_state} />
@@ -75,13 +79,17 @@ export function ClusterOverviewPage() {
                 </div>
             ))}
 
-            <Card title="All Nodes">
-                <NodeList />
-            </Card>
+            <div className="mt-12">
+                <Section title="All Nodes">
+                    <NodeList />
+                </Section>
+            </div>
 
-            <Card title="Recent Jobs">
-                <JobList />
-            </Card>
+            <div className="mt-12">
+                <Section title="Recent Jobs">
+                    <JobList />
+                </Section>
+            </div>
         </section>
     );
 }

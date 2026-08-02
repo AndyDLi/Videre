@@ -1,11 +1,19 @@
-import type { HealthTone } from '../domain/clusterHealth';
+import { formatTerm } from '../domain/format';
+import type { HealthTone } from '../domain/healthState';
 import { toneForState } from '../domain/healthState';
 
 const TONE_CLASSES: Record<HealthTone, string> = {
-    good: 'bg-state-good/10 text-state-good border-state-good/40',
-    warning: 'bg-state-warning/10 text-state-warning border-state-warning/40',
-    bad: 'bg-state-bad/10 text-state-bad border-state-bad/40',
-    neutral: 'bg-state-neutral/10 text-state-neutral border-state-neutral/40',
+    good: 'border-state-good/45 text-state-good',
+    warning: 'border-state-warning/45 text-state-warning',
+    bad: 'border-state-bad/45 text-state-bad',
+    neutral: 'border-state-neutral/45 text-state-neutral',
+};
+
+const TONE_MARK_CLASSES: Record<HealthTone, string> = {
+    good: 'rounded-full bg-current',
+    warning: 'rotate-45 bg-current',
+    bad: 'bg-current',
+    neutral: 'rounded-full border border-current',
 };
 
 export function HealthBadge({ state }: { state: string }) {
@@ -13,9 +21,13 @@ export function HealthBadge({ state }: { state: string }) {
     return (
         <span
             data-tone={tone}
-            className={`inline-block rounded border px-2 py-0.5 text-xs font-semibold tracking-wide ${TONE_CLASSES[tone]}`}
+            className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 text-[0.625rem] tracking-[0.12em] whitespace-nowrap ${TONE_CLASSES[tone]}`}
         >
-            {state}
+            <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 ${TONE_MARK_CLASSES[tone]}`}
+            />
+            {formatTerm(state)}
         </span>
     );
 }

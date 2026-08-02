@@ -8,26 +8,33 @@ const NAVIGATION_ITEMS = [
     { to: '/capacity', label: 'Capacity' },
 ];
 
+const CONTAINER_CLASSES = 'mx-auto w-full max-w-[1180px] px-6 sm:px-10';
+
 function navigationClasses(isActive: boolean): string {
-    const base = 'rounded px-3 py-2 text-sm font-medium';
+    const base = 'eyebrow border-b-2 py-3 whitespace-nowrap';
     return isActive
-        ? `${base} bg-surface-muted text-text-primary`
-        : `${base} text-text-muted hover:bg-surface-muted`;
+        ? `${base} border-accent-border text-accent`
+        : `${base} border-transparent text-text-muted hover:text-text-primary`;
 }
 
 export function Layout() {
     return (
         <div className="min-h-screen">
-            <header className="border-b border-border-subtle bg-surface">
-                <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Link to="/" className="text-lg font-semibold">
+            <header className="sticky top-0 z-10 border-b border-border-subtle bg-surface/92 backdrop-blur">
+                <div
+                    className={`${CONTAINER_CLASSES} flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6`}
+                >
+                    <Link
+                        to="/"
+                        className="font-display text-lg tracking-[0.18em] text-accent uppercase"
+                    >
                         Videre
                     </Link>
                     <ClusterHealthSummary />
                 </div>
                 <nav
                     aria-label="Primary"
-                    className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2"
+                    className={`${CONTAINER_CLASSES} flex gap-7 overflow-x-auto border-t border-border-subtle`}
                 >
                     {NAVIGATION_ITEMS.map((item) => (
                         <NavLink
@@ -42,7 +49,7 @@ export function Layout() {
                 </nav>
             </header>
 
-            <main className="mx-auto max-w-6xl px-4 py-6">
+            <main className={`${CONTAINER_CLASSES} py-10 sm:py-14`}>
                 <Outlet />
             </main>
         </div>

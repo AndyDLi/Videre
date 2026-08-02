@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { listFailures } from '../api/endpoints';
 import type { EntityType } from '../api/types';
+import { formatTerm } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 import { FailureRecordEntry } from './FailureRecordEntry';
 import { LoadingOrError } from './LoadingOrError';
@@ -34,10 +35,12 @@ export function EntityFailures({ entityType, entityId }: EntityFailuresProps) {
     }
 
     return (
-        <ul className="divide-y divide-border-subtle">
+        <ul className="divide-y divide-border-subtle border-b border-border-subtle">
             {data.items.map((record) => (
                 <FailureRecordEntry key={record.id} record={record}>
-                    <span className="text-sm font-medium">{record.root_cause_tag}</span>
+                    <span className="font-display text-base text-text-primary">
+                        {formatTerm(record.root_cause_tag)}
+                    </span>
                 </FailureRecordEntry>
             ))}
         </ul>

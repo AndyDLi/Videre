@@ -2,8 +2,9 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getNode, listNodes } from '../api/endpoints';
+import { formatEntityId } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
-import { GpuChips } from './GpuChips';
+import { GpuGrid } from './GpuGrid';
 import { HealthBadge } from './HealthBadge';
 import { LoadingOrError } from './LoadingOrError';
 
@@ -16,15 +17,15 @@ function ExpandedGpus({ nodeId }: { nodeId: string }) {
 
     if (data === null) {
         return (
-            <div className="mt-2">
+            <div className="pb-3">
                 <LoadingOrError isLoading={isLoading} error={error} subject="GPUs" />
             </div>
         );
     }
 
     return (
-        <div className="mt-2">
-            <GpuChips nodeId={nodeId} gpus={data.gpus} />
+        <div className="pb-3">
+            <GpuGrid nodeId={nodeId} gpus={data.gpus} />
         </div>
     );
 }
@@ -42,12 +43,12 @@ export function NodeList() {
     }
 
     return (
-        <ul className="divide-y divide-border-subtle">
+        <ul className="divide-y divide-border-subtle border-b border-border-subtle">
             {data.items.map((node) => (
-                <li key={node.id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Link to={`/nodes/${node.id}`} className="font-medium hover:underline">
-                            {node.id}
+                <li key={node.id}>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3.5">
+                        <Link to={`/nodes/${node.id}`} className="entity-link">
+                            {formatEntityId(node.id)}
                         </Link>
                         <HealthBadge state={node.health_state} />
                         <span className="text-sm text-text-muted">
@@ -60,7 +61,7 @@ export function NodeList() {
                             onClick={() => {
                                 setExpandedNodeId(expandedNodeId === node.id ? null : node.id);
                             }}
-                            className="ml-auto rounded border border-border-subtle px-2 py-1 text-xs font-medium hover:bg-surface-muted"
+                            className="eyebrow ml-auto text-text-muted hover:text-accent"
                         >
                             {expandedNodeId === node.id ? 'Hide GPUs' : 'Show GPUs'}
                         </button>

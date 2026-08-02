@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 import { listJobs } from '../api/endpoints';
+import { formatEntityId } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 import { HealthBadge } from './HealthBadge';
 import { LoadingOrError } from './LoadingOrError';
@@ -21,18 +22,18 @@ export function JobList() {
     }
 
     return (
-        <ul className="divide-y divide-border-subtle">
+        <ul className="divide-y divide-border-subtle border-b border-border-subtle">
             {data.items.map((job) => (
-                <li key={job.id} className="flex flex-wrap items-center gap-3 py-2">
-                    <Link to={`/jobs/${job.id}`} className="font-medium hover:underline">
-                        {job.id}
+                <li key={job.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                    <Link to={`/jobs/${job.id}`} className="entity-link">
+                        {formatEntityId(job.id)}
                     </Link>
                     <HealthBadge state={job.lifecycle_state} />
                     <span className="text-sm text-text-muted">
                         {job.requested_gpu_count} GPUs · priority {job.priority}
                     </span>
                     {job.failure_reason !== null && (
-                        <span className="text-sm text-state-bad">{job.failure_reason}</span>
+                        <span className="ml-auto text-sm text-state-bad">{job.failure_reason}</span>
                     )}
                 </li>
             ))}
