@@ -16,7 +16,7 @@ data:
         {
           "id": 1,
           "type": "stat",
-          "title": "Nodes by health state",
+          "title": "Nodes by Health State",
           "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -40,7 +40,7 @@ data:
         {
           "id": 2,
           "type": "stat",
-          "title": "GPUs by health state",
+          "title": "GPUs by Health State",
           "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -64,7 +64,7 @@ data:
         {
           "id": 3,
           "type": "stat",
-          "title": "Jobs by lifecycle state",
+          "title": "Jobs by Lifecycle State",
           "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -88,7 +88,7 @@ data:
         {
           "id": 4,
           "type": "timeseries",
-          "title": "Average GPU utilization by node",
+          "title": "Average GPU Utilization by Node",
           "gridPos": { "h": 9, "w": 16, "x": 0, "y": 5 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -120,7 +120,7 @@ data:
         {
           "id": 5,
           "type": "stat",
-          "title": "Unresolved failures",
+          "title": "Unresolved Failures",
           "gridPos": { "h": 4, "w": 8, "x": 16, "y": 5 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -150,7 +150,7 @@ data:
         {
           "id": 6,
           "type": "stat",
-          "title": "Backend scrape health",
+          "title": "Backend Scrape Health",
           "gridPos": { "h": 5, "w": 8, "x": 16, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -175,7 +175,7 @@ data:
         {
           "id": 7,
           "type": "timeseries",
-          "title": "Job throughput per minute",
+          "title": "Job Throughput per Minute",
           "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -219,7 +219,7 @@ data:
         {
           "id": 1,
           "type": "timeseries",
-          "title": "Failure events per minute by category",
+          "title": "Failure Events per Minute by Category",
           "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -244,7 +244,7 @@ data:
         {
           "id": 2,
           "type": "bargauge",
-          "title": "Job failures by mode",
+          "title": "Job Failures by Mode",
           "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -265,7 +265,7 @@ data:
         {
           "id": 3,
           "type": "bargauge",
-          "title": "GPU errors by type",
+          "title": "GPU Errors by Type",
           "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -286,7 +286,7 @@ data:
         {
           "id": 4,
           "type": "bargauge",
-          "title": "Node failures by mode",
+          "title": "Node Failures by Mode",
           "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -307,7 +307,7 @@ data:
         {
           "id": 5,
           "type": "stat",
-          "title": "Nodes out of the schedulable pool",
+          "title": "Nodes out of the Schedulable Pool",
           "gridPos": { "h": 5, "w": 8, "x": 0, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -341,7 +341,7 @@ data:
         {
           "id": 6,
           "type": "stat",
-          "title": "Reserved-but-idle GPUs (below 5% utilization)",
+          "title": "Reserved-but-Idle GPUs (Below 5% Utilization)",
           "gridPos": { "h": 5, "w": 8, "x": 8, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -357,7 +357,7 @@ data:
         {
           "id": 7,
           "type": "stat",
-          "title": "Capacity events in range",
+          "title": "Capacity Events in Range",
           "gridPos": { "h": 5, "w": 8, "x": 16, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -378,7 +378,7 @@ data:
         {
           "id": 8,
           "type": "logs",
-          "title": "Backend warnings and errors",
+          "title": "Backend Warnings and Errors",
           "gridPos": { "h": 9, "w": 24, "x": 0, "y": 22 },
           "datasource": { "type": "loki", "uid": "loki" },
           "targets": [

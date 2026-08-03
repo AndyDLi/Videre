@@ -33,7 +33,7 @@ These ports run on local hardware to build, test, and control the cluster.
 | Port | Component | Function |
 |---|---|---|
 | 80 | Traefik | Receives the HTTP traffic that Tailscale Funnel forwards from the public URL, then routes it to the right Kubernetes Service. |
-| 443 | Tailscale | Handles the secure incoming internet connection and passes it to Traefik on port 80, keeping Traefik's own secure port disabled to they do not fight for control. |
+| 443 | Tailscale | Handles the secure incoming internet connection and passes it to Traefik on port 80, keeping Traefik's own secure port disabled so they do not fight for control. |
 | 6443 | k3s API server | Kubernetes control plane. |
 | 5173 | Vite dev server | The local dashboard from `npm run dev`. |
 | 3000 | Grafana port-forward | `kubectl -n videre port-forward svc/grafana 3000:3000`. |

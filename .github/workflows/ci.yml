@@ -114,6 +114,7 @@ jobs:
           target: simulator
           push: true
           tags: ${{ env.IMAGE_PREFIX }}-simulator:${{ steps.versions.outputs.python_version }}-${{ steps.versions.outputs.short_sha }}
+          provenance: false
           cache-from: type=gha,scope=simulator
           cache-to: type=gha,mode=max,scope=simulator
 
@@ -124,6 +125,7 @@ jobs:
           target: backend
           push: true
           tags: ${{ env.IMAGE_PREFIX }}-backend:${{ steps.versions.outputs.python_version }}-${{ steps.versions.outputs.short_sha }}
+          provenance: false
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -133,6 +135,7 @@ jobs:
           context: ./frontend
           push: true
           tags: ${{ env.IMAGE_PREFIX }}-frontend:${{ steps.versions.outputs.frontend_version }}-${{ steps.versions.outputs.short_sha }}
+          provenance: false
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 

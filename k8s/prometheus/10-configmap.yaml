@@ -37,6 +37,10 @@ data:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/${1}/proxy/metrics
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: kubelet_running_pods|kubelet_running_containers|kubelet_node_name
+            action: keep
 
       - job_name: kubernetes-cadvisor
         scheme: https
@@ -55,6 +59,13 @@ data:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: container_cpu_usage_seconds_total|container_memory_working_set_bytes
+            action: keep
+          - source_labels: [namespace]
+            regex: videre
+            action: keep
 
       - job_name: videre-backend
         scrape_interval: 15s

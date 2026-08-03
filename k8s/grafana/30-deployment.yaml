@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: videre
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   strategy:
     type: Recreate    # recreate not rolling; keeps one instance mounted to the DB across a redeploy
   selector:
@@ -22,6 +23,7 @@ spec:
         app.kubernetes.io/name: grafana
         app.kubernetes.io/part-of: videre
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 472    # non-root Grafana user
         runAsGroup: 472

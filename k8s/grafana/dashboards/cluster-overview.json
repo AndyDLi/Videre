@@ -11,7 +11,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Nodes by health state",
+      "title": "Nodes by Health State",
       "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -35,7 +35,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "GPUs by health state",
+      "title": "GPUs by Health State",
       "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -59,7 +59,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Jobs by lifecycle state",
+      "title": "Jobs by Lifecycle State",
       "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -83,7 +83,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Average GPU utilization by node",
+      "title": "Average GPU Utilization by Node",
       "gridPos": { "h": 9, "w": 16, "x": 0, "y": 5 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -115,7 +115,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Unresolved failures",
+      "title": "Unresolved Failures",
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 5 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -145,7 +145,7 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Backend scrape health",
+      "title": "Backend Scrape Health",
       "gridPos": { "h": 5, "w": 8, "x": 16, "y": 9 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -170,7 +170,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Job throughput per minute",
+      "title": "Job Throughput per Minute",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [

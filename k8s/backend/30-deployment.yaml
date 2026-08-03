@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: videre
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   strategy:
     type: Recreate    # recreate not rolling; avoid more than one Kafka consumer group member
   selector:
@@ -22,6 +23,7 @@ spec:
         app.kubernetes.io/name: backend
         app.kubernetes.io/part-of: videre
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: backend
           image: ghcr.io/andydli/videre-backend:0.9.0-e229999

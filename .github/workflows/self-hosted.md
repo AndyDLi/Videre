@@ -6,7 +6,7 @@ GitHub-hosted runners are fresh, ephemeral cloud VMs spun up and managed entirel
 
 In Videre, a runner needs to talk to the k3s API Server, but the only exposed public entry point is 443, which solely routes traffic to Traefik. As a result, the cluster sits behind an outbound-only tunnel, meaning there is no inbound route for GitHub Actions to execute deployment commands.
 
-Although we could route public internet traffic through Traefik to expose the internal k3s API server, this should never be done because it invites security vulnerabilities that must be handled with precise configurations. Therefore, we keep 443 open for public web traffic and 6443 strictly private.
+Although we could route public internet traffic through Traefik to expose the internal k3s API server, this should never be done because it invites security vulnerabilities that must be handled with precise configurations. Therefore, we keep 443 open for public web traffic and 6443 off the public internet entirely.
 
 ## Architecture
 

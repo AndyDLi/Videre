@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/part-of: videre
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: frontend
@@ -20,6 +21,7 @@ spec:
         app.kubernetes.io/name: frontend
         app.kubernetes.io/part-of: videre
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: frontend
           image: ghcr.io/andydli/videre-frontend:0.9.2-e229999
