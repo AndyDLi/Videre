@@ -32,16 +32,18 @@ Tests, image builds, and registry pushes run on GitHub's hosted runners (`ubuntu
 
 ### 1. Verification (PRs & `main`)
 
-Two testing jobs run in parallel on every push to `main` and on all pull requests:
+Three verification jobs run in parallel on every push to `main` and on all pull requests:
 
 - **Backend & Simulator** (`test-python`): uses uv to install locked dependencies, lint code, enforce static type safety, and execute test suites.
-- **Frontend** (`test-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, formatting verification, and unit tests.
+- **Frontend** (`check-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, formatting verification, and unit tests.
+- **Kubernetes manifests** (`check-manifests`): renders `k8s/kustomization.yaml` with `kubectl kustomize`. Since `kubectl apply -k k8s/` is the only supported way to apply the stack, a broken kustomization has to fail in review rather than at the terminal.
 
 ### 2. Packaging & Publishing (`main` only)
 
 Once verification succeeds on `main`, the `build-and-push` job compiles and publishes images to the GitHub Container Registry (`ghcr.io`):
 
 - Builds and pushes three distinct container images (simulator, backend, frontend), tagged using `<semantic-version>-<short-sha>`, read from `pyproject.toml` and `package.json` to ensure every deployment has a unique image reference and prevents Kubernetes nodes from silently serving stale cached layers.
+- Writes those three tags back into the Deployment manifests and commits them to `main`. The deploy job below rolls images out with `kubectl set image`, which records the live tag nowhere in Git; without this commit the manifests fall behind by every deploy and `kubectl apply -k k8s/` becomes a rollback instead of a no-op. The commit uses `GITHUB_TOKEN`, whose pushes do not start a new workflow run, so the pipeline cannot loop.
 
 ### 3. Cluster Deployment & Security Auditing
 

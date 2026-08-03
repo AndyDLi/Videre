@@ -1,0 +1,49 @@
+# Applies the full stack in one command: kubectl apply -k k8s/
+# kafka/30-topics-job.yaml is excluded: a one-off job and should not be applied on every deployment.
+# traefik/01-helmchartconfig.yaml is excluded: triggers a Traefik Helm redeploy, briefly dropping public ingress.
+# See docs/setup.md.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace/00-namespace.yaml
+  - namespace/10-limitrange.yaml
+  - namespace/20-resourcequota.yaml
+  - postgres/00-pvc.yaml
+  - postgres/10-service.yaml
+  - postgres/20-deployment.yaml
+  - redis/10-service.yaml
+  - redis/20-deployment.yaml
+  - kafka/00-pvc.yaml
+  - kafka/10-service.yaml
+  - kafka/20-deployment.yaml
+  - prometheus/00-rbac.yaml
+  - prometheus/10-configmap.yaml
+  - prometheus/20-pvc.yaml
+  - prometheus/30-service.yaml
+  - prometheus/40-deployment.yaml
+  - loki/00-configmap.yaml
+  - loki/10-pvc.yaml
+  - loki/20-service.yaml
+  - loki/30-deployment.yaml
+  - alloy/00-rbac.yaml
+  - alloy/10-configmap.yaml
+  - alloy/20-daemonset.yaml
+  - grafana/00-configmap-datasource.yaml
+  - grafana/01-configmap-dashboard-provider.yaml
+  - grafana/02-configmap-dashboards.yaml
+  - grafana/10-pvc.yaml
+  - grafana/20-service.yaml
+  - grafana/30-deployment.yaml
+  - backend/10-configmap.yaml
+  - backend/20-service.yaml
+  - backend/30-deployment.yaml
+  - frontend/20-service.yaml
+  - frontend/30-deployment.yaml
+  - simulator/00-rbac.yaml
+  - simulator/10-configmap.yaml
+  - simulator/20-deployment.yaml
+  - ci/00-rbac.yaml
+  - traefik/00-middleware.yaml
+  - traefik/10-ingressroute.yaml
