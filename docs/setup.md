@@ -63,6 +63,31 @@ To ensure Videre only runs when explicitly started, disable k3s auto-start:
 
 Opening the Ubuntu terminal will still boot the WSL VM on demand. While the lightweight `tailscaled` service auto-starts to maintain network connectivity, k3s and its workloads remain offline. This design ensures that following a Windows restart, the demo consumes no resources until manually launched.
 
+## Deploying the Manifests
+
+Everything in `k8s/` is applied with one command:
+
+```bash
+kubectl apply -k k8s/
+```
+
+Run it after changing anything under `k8s/`. CI deploys new container images on every push to main, but it holds no permission to apply anything else — the `videre-deployer` ServiceAccount is scoped to patching Deployments — so ConfigMap, Service, and dashboard changes reach the cluster only through this command.
+
+The command is safe to re-run at any time. CI writes each deployed image tag back into the Deployment manifests, so the tags in Git match what is running and applying them changes nothing. Do not hand-edit those three `image:` lines; the next push to main overwrites them.
+
+A from-scratch rebuild needs three steps in order:
+
+1. Create the four Secrets. They are deliberately never committed, so nothing in Git creates them: `postgres-secret`, `postgres-app-secret`, `gemini-secret`, and `grafana-secret`. Without them the Postgres, backend, and Grafana pods stall in `CreateContainerConfigError`.
+2. Run `kubectl apply -k k8s/`.
+3. Apply the two manifests the kustomization leaves out:
+
+   ```bash
+   kubectl apply -f k8s/kafka/30-topics-job.yaml
+   kubectl apply -f k8s/traefik/01-helmchartconfig.yaml
+   ```
+
+   Both are bootstrap-only. The Kafka topics Job deletes itself after it completes, so a routine apply would recreate it and start a Kafka container to redo settled work. The Traefik `HelmChartConfig` triggers a Helm redeploy that briefly drops public ingress.
+
 ## Starting and Stopping the Demo
 
 Two helper scripts in the `scripts/` directory manage the application lifecycle from within the cluster.
