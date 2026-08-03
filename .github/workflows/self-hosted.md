@@ -36,7 +36,7 @@ Three verification jobs run in parallel on every push to `main` and on all pull 
 
 - **Backend & Simulator** (`test-python`): uses uv to install locked dependencies, lint code, enforce static type safety, and execute test suites.
 - **Frontend** (`check-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, formatting verification, and unit tests.
-- **Kubernetes manifests** (`check-manifests`): renders `k8s/kustomization.yaml` with `kubectl kustomize`. Since `kubectl apply -k k8s/` is the only supported way to apply the stack, a broken kustomization has to fail in review rather than at the terminal.
+- **Kubernetes manifests** (`check-manifests`): renders `k8s/kustomization.yaml` with `kubectl kustomize`. `kubectl apply -k k8s/` applies the stack, so a broken kustomization has to fail in review rather than at the terminal.
 
 ### 2. Packaging & Publishing (`main` only)
 
