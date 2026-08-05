@@ -57,10 +57,9 @@ async def client(session):
         yield async_client
 
 
-# --- Clusters (Redis-backed) ---
-
-
 async def test_clusters_returns_cached_snapshots(session, client) -> None:
+    """The clusters endpoint serves whatever the Redis snapshot cache holds."""
+
     await seed(session)
     await write_snapshot(
         client.app.state.fake_redis,
@@ -74,17 +73,20 @@ async def test_clusters_returns_cached_snapshots(session, client) -> None:
 
 
 async def test_clusters_returns_503_when_the_cache_is_empty(client) -> None:
+    """An empty cache returns 503 rather than silently degrading into an aggregation query."""
+
     assert (await client.get("/clusters")).status_code == 503
 
 
 async def test_single_cluster_404s_when_not_cached(client) -> None:
+    """Requesting a cluster that is not cached returns 404."""
+
     assert (await client.get("/clusters/missing")).status_code == 404
 
 
-# --- Nodes ---
-
-
 async def test_list_nodes_paginates(session, client) -> None:
+    """The node list honours the requested page size and reports the unpaged total."""
+
     await seed(session)
     response = await client.get("/nodes", params={"limit": 1})
     assert response.status_code == 200
@@ -95,12 +97,16 @@ async def test_list_nodes_paginates(session, client) -> None:
 
 
 async def test_list_nodes_filters_by_health_state(session, client) -> None:
+    """The node list filters by health state on the server."""
+
     await seed(session)
     body = (await client.get("/nodes", params={"health_state": NodeHealthState.DRAINING.value})).json()
     assert [item["id"] for item in body["items"]] == ["node-1"]
 
 
 async def test_node_detail_includes_its_gpus(session, client) -> None:
+    """Node detail nests its GPUs, which is how the GPU drill-down obtains its data."""
+
     await seed(session)
     body = (await client.get("/nodes/node-0")).json()
     assert body["id"] == "node-0"
@@ -108,17 +114,20 @@ async def test_node_detail_includes_its_gpus(session, client) -> None:
 
 
 async def test_node_detail_404s_for_an_unknown_id(client) -> None:
+    """An unknown node id returns 404."""
+
     assert (await client.get("/nodes/does-not-exist")).status_code == 404
 
 
 async def test_page_size_above_the_maximum_is_rejected(client) -> None:
+    """A page size beyond the maximum is rejected, bounding response size."""
+
     assert (await client.get("/nodes", params={"limit": MAXIMUM_PAGE_SIZE + 1})).status_code == 422
 
 
-# --- Jobs ---
-
-
 async def test_list_jobs_filters_by_lifecycle_state(session, client) -> None:
+    """The job list filters by lifecycle state and carries the failure reason."""
+
     await seed(session)
     body = (await client.get("/jobs", params={"lifecycle_state": JobState.FAILED.value})).json()
     assert [item["id"] for item in body["items"]] == ["job-2"]
@@ -126,19 +135,22 @@ async def test_list_jobs_filters_by_lifecycle_state(session, client) -> None:
 
 
 async def test_job_detail_flattens_node_assignments(session, client) -> None:
+    """Job detail flattens the join table into a list of assigned node ids."""
+
     await seed(session)
     body = (await client.get("/jobs/job-1")).json()
     assert body["assigned_node_ids"] == ["node-0"]
 
 
 async def test_job_detail_404s_for_an_unknown_id(client) -> None:
+    """An unknown job id returns 404."""
+
     assert (await client.get("/jobs/does-not-exist")).status_code == 404
 
 
-# --- Failures ---
-
-
 async def test_failures_filters_unresolved_only(session, client) -> None:
+    """The failures endpoint separates resolved records from unresolved ones."""
+
     await seed(session)
     node = sample_node(NodeHealthState.NOT_READY)
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
@@ -158,6 +170,8 @@ async def test_failures_filters_unresolved_only(session, client) -> None:
 
 
 async def test_failures_filters_by_entity(session, client) -> None:
+    """The failures endpoint narrows to a single entity."""
+
     await seed(session)
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=EventType.NODE_DISK_PRESSURE.value,
@@ -171,6 +185,8 @@ async def test_failures_filters_by_entity(session, client) -> None:
 
 
 async def test_failures_since_excludes_older_records(session, client) -> None:
+    """A since bound excludes records detected before it."""
+
     await seed(session)
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=EventType.NODE_CNI_FAILURE.value,
@@ -183,10 +199,9 @@ async def test_failures_since_excludes_older_records(session, client) -> None:
     assert all(item["detected_at"] >= "2024-01-01" for item in body["items"])
 
 
-# --- Capacity ---
-
-
 async def test_capacity_counts_drained_nodes_and_unavailable_gpus(session, client) -> None:
+    """Capacity counts drained nodes and the GPUs stranded on unhealthy ones."""
+
     await seed(session)
     draining_gpu = sample_gpu()
     draining_gpu.id = "gpu-1-0"
@@ -204,7 +219,8 @@ async def test_capacity_counts_drained_nodes_and_unavailable_gpus(session, clien
 
 
 async def test_capacity_counts_idle_gpus_only_on_nodes_without_running_jobs(session, client) -> None:
-    # node-0 runs a job; node-1 does not, so its healthy idle GPU is reserved-but-idle capacity
+    """Only GPUs on nodes running no job count as reserved-but-idle capacity."""
+
     await seed(session)
     idle_gpu = sample_gpu()
     idle_gpu.id = "gpu-1-0"
@@ -222,4 +238,4 @@ async def test_capacity_counts_idle_gpus_only_on_nodes_without_running_jobs(sess
 
     body = (await client.get("/capacity")).json()
     summary = next(item for item in body if item["cluster_id"] == "cluster-a")
-    assert summary["idle_reserved_gpus"] == 1    # node-1's GPU, not node-0's busy one
+    assert summary["idle_reserved_gpus"] == 1

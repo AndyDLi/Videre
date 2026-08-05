@@ -64,17 +64,15 @@ async def _count(session, table) -> int:
     return int((await session.execute(select(func.count()).select_from(table))).scalar_one())
 
 
-# --- Completeness ---
-
-
 def test_every_failure_event_type_has_a_category() -> None:
+    """Every failure event type maps to a category, so none can be persisted uncategorized."""
+
     assert set(FAILURE_CATEGORIES) == set(EventType)
 
 
-# --- Per-topic persistence ---
-
-
 async def test_node_event_upserts_the_node_and_records_a_failure(session) -> None:
+    """A node fault upserts the node's current state and appends a failure record."""
+
     message = NodeEventMessage(
         event_type=EventType.NODE_KUBELET_DOWN.value,
         payload=sample_node(NodeHealthState.NOT_READY),
@@ -92,6 +90,8 @@ async def test_node_event_upserts_the_node_and_records_a_failure(session) -> Non
 
 
 async def test_gpu_metric_updates_state_without_recording_a_failure(session) -> None:
+    """Routine GPU telemetry updates state without inventing a failure record."""
+
     gpu = sample_gpu()
     gpu.utilization_percentage = 87.5
     await apply_event(session, Topic.GPU_METRICS, GpuMetricMessage(event_type="gpu.metric", payload=gpu))
@@ -102,6 +102,8 @@ async def test_gpu_metric_updates_state_without_recording_a_failure(session) -> 
 
 
 async def test_job_event_writes_the_job_and_its_node_assignments(session) -> None:
+    """A job event writes the job row together with its node assignments."""
+
     message = JobEventMessage(event_type="job.running", payload=sample_job())
     await apply_event(session, Topic.JOB_EVENTS, message)
 
@@ -114,6 +116,8 @@ async def test_job_event_writes_the_job_and_its_node_assignments(session) -> Non
 
 
 async def test_failed_job_gets_a_completed_at_so_retention_can_reach_it(session) -> None:
+    """A terminal job always receives a completed_at, which is what lets retention prune it later."""
+
     failed = sample_job(JobState.FAILED)
     assert failed.finished_at is None
     await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
@@ -125,6 +129,8 @@ async def test_failed_job_gets_a_completed_at_so_retention_can_reach_it(session)
 
 
 async def test_scheduler_event_is_persisted(session) -> None:
+    """A scheduler event is appended with its delay and reason intact."""
+
     scheduler_event = SchedulerEvent(
         id="scheduler-1", type=SchedulerEventType.QUEUEING_DELAY, node_id="node-0",
         delay_seconds=42.0, reason="resource fragmentation delayed placement",
@@ -138,10 +144,9 @@ async def test_scheduler_event_is_persisted(session) -> None:
     assert stored.delay_seconds == 42.0
 
 
-# --- Idempotency, ordering, resolution ---
-
-
 async def test_reprocessing_the_same_message_creates_one_failure_record(session) -> None:
+    """Redelivering a message leaves exactly one failure record, proving idempotency is real."""
+
     message = NodeEventMessage(
         event_type=EventType.NODE_DISK_PRESSURE.value, payload=sample_node(NodeHealthState.NOT_READY)
     )
@@ -153,6 +158,8 @@ async def test_reprocessing_the_same_message_creates_one_failure_record(session)
 
 
 async def test_gpu_arriving_before_its_node_creates_a_placeholder(session) -> None:
+    """A GPU arriving before its node creates a placeholder rather than failing a foreign key."""
+
     await apply_event(session, Topic.GPU_METRICS, GpuMetricMessage(
         event_type="gpu.metric", payload=sample_gpu()
     ))
@@ -171,6 +178,8 @@ async def test_gpu_arriving_before_its_node_creates_a_placeholder(session) -> No
 
 
 async def test_recovery_event_resolves_open_failures_for_that_entity_only(session) -> None:
+    """Recovery resolves that entity's open failures and leaves other entities untouched."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=EventType.NODE_KUBELET_DOWN.value, payload=sample_node(NodeHealthState.NOT_READY)
     ))
@@ -190,10 +199,9 @@ async def test_recovery_event_resolves_open_failures_for_that_entity_only(sessio
     assert resolved["node-1"] is None
 
 
-# --- Retention ---
-
-
 async def test_pruning_removes_aged_history_but_keeps_current_state_and_open_failures(session) -> None:
+    """Pruning clears aged history while current-state rows and active incidents survive."""
+
     now = datetime.now(UTC)
     old = now - timedelta(days=5)
 
@@ -215,8 +223,79 @@ async def test_pruning_removes_aged_history_but_keeps_current_state_and_open_fai
     assert await _count(session, JobNodeAssignment) == 0
 
 
+async def test_pruning_removes_aged_unresolved_job_failures(session) -> None:
+    """A failed job never recovers, so its aged failure record is pruned by age instead of resolution."""
+
+    now = datetime.now(UTC)
+    old = now - timedelta(days=5)
+
+    await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
+        event_type=EventType.JOB_OOM_KILL.value, timestamp=old, payload=sample_job(JobState.FAILED)
+    ))
+    await session.flush()
+    assert await _count(session, FailureRecord) == 1
+
+    deleted = await prune_once(session, cutoff=now - timedelta(days=3))
+
+    assert deleted["failure_records"] == 1
+    assert await _count(session, FailureRecord) == 0
+
+
+async def test_pruning_keeps_recent_unresolved_job_failures(session) -> None:
+    """A recent job failure stays visible as an active incident rather than being pruned early."""
+
+    now = datetime.now(UTC)
+
+    await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
+        event_type=EventType.JOB_OOM_KILL.value, timestamp=now, payload=sample_job(JobState.FAILED)
+    ))
+    await session.flush()
+
+    deleted = await prune_once(session, cutoff=now - timedelta(days=3))
+
+    assert deleted["failure_records"] == 0
+    assert await _count(session, FailureRecord) == 1
+
+
+async def test_pruning_removes_jobs_stranded_by_a_simulator_restart(session) -> None:
+    """A restart abandons in-flight jobs with no completed_at, so they are pruned once they stop updating."""
+
+    now = datetime.now(UTC)
+    old = now - timedelta(days=5)
+
+    await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
+        event_type=LifecycleEventType.JOB_RUNNING.value, timestamp=old,
+        payload=sample_job(JobState.RUNNING),
+    ))
+    await session.flush()
+
+    deleted = await prune_once(session, cutoff=now - timedelta(days=3))
+
+    assert deleted["jobs"] == 1
+    assert await _count(session, Job) == 0
+    assert await _count(session, JobNodeAssignment) == 0
+
+
+async def test_pruning_keeps_jobs_that_are_still_running(session) -> None:
+    """A job still emitting events is left alone, however long it has been running."""
+
+    now = datetime.now(UTC)
+
+    await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
+        event_type=LifecycleEventType.JOB_RUNNING.value, timestamp=now,
+        payload=sample_job(JobState.RUNNING),
+    ))
+    await session.flush()
+
+    deleted = await prune_once(session, cutoff=now - timedelta(days=3))
+
+    assert deleted["jobs"] == 0
+    assert await _count(session, Job) == 1
+
+
 async def test_reprocessing_a_scheduler_event_is_a_no_op(session) -> None:
-    # a redelivered scheduler event collides on its primary key as well as on event_id
+    """Redelivering a scheduler event does not duplicate the row."""
+
     message = SchedulerEventMessage(
         event_type=EventType.CAPACITY_FRAGMENTATION.value,
         payload=SchedulerEvent(
@@ -231,20 +310,24 @@ async def test_reprocessing_a_scheduler_event_is_a_no_op(session) -> None:
 
 
 async def test_periodic_node_state_populates_capacity_without_recording_a_failure(session) -> None:
+    """Periodic node state fills in capacity without recording a failure."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=LifecycleEventType.NODE_STATE.value, payload=sample_node()
     ))
 
     node = (await session.execute(select(Node).where(Node.id == "node-0"))).scalar_one()
-    assert node.cpu_cores == 64                     # real capacity, not a placeholder
+    assert node.cpu_cores == 64
     assert node.cluster_id == "cluster-a"
-    assert await _count(session, FailureRecord) == 0    # routine state is not a failure
+    assert await _count(session, FailureRecord) == 0
 
 
 async def test_cluster_placeholder_is_named_after_its_id(session) -> None:
+    """A placeholder cluster takes its id as its name."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=LifecycleEventType.NODE_STATE.value, payload=sample_node()
     ))
 
     cluster = (await session.execute(select(Cluster).where(Cluster.id == "cluster-a"))).scalar_one()
-    assert cluster.name == "cluster-a"    # no event carries a display name; never show "(pending)"
+    assert cluster.name == "cluster-a"

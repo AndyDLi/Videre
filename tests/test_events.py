@@ -23,8 +23,6 @@ from videre.events import (
 )
 from videre.models import GPU, Job, Node, ResourceRequest, SchedulerEvent, SchedulerEventType
 
-# --- Valid sample payloads and messages ---
-
 
 def sample_node() -> Node:
     return Node(id="node-01", cluster_id="cluster-a", cpu_cores=64, memory_gb=512, gpu_count=8)
@@ -61,18 +59,16 @@ def sample_messages() -> list[object]:
     ]
 
 
-# --- Every message survives a JSON round-trip ---
-
-
 @pytest.mark.parametrize("message", sample_messages())
 def test_message_json_roundtrip(message) -> None:
+    """Every topic's message survives serialization to JSON and back unchanged."""
+
     assert type(message).model_validate_json(message.model_dump_json()) == message
 
 
-# --- Envelope behavior ---
-
-
 def test_envelope_defaults() -> None:
+    """A new envelope carries the schema version, a correlation id, and a timezone-aware timestamp."""
+
     message = NodeEventMessage(event_type="node.ready", payload=sample_node())
     assert message.schema_version == SCHEMA_VERSION
     assert isinstance(message.correlation_id, str) and message.correlation_id
@@ -81,6 +77,8 @@ def test_envelope_defaults() -> None:
 
 
 def test_correlation_id_roundtrips_when_set() -> None:
+    """An explicitly set correlation id survives serialization, so a cascade stays linked."""
+
     message = GpuMetricMessage(
         event_type="gpu.thermal_throttling",
         correlation_id="cascade-123",
@@ -91,6 +89,8 @@ def test_correlation_id_roundtrips_when_set() -> None:
 
 
 def test_envelope_wraps_payload() -> None:
+    """The envelope exposes its metadata fields alongside the nested entity payload."""
+
     message = NodeEventMessage(event_type="node.ready", payload=sample_node())
     data = json.loads(message.model_dump_json())
     assert set(data) >= {"event_type", "schema_version", "timestamp", "correlation_id", "payload"}
@@ -98,27 +98,33 @@ def test_envelope_wraps_payload() -> None:
 
 
 def test_extra_envelope_fields_forbidden() -> None:
+    """An unrecognized envelope field is rejected rather than silently accepted."""
+
     with pytest.raises(ValidationError):
         NodeEventMessage(event_type="node.ready", payload=sample_node(), bogus="x")
 
 
 def test_event_id_is_unique_per_message() -> None:
+    """Each message mints its own event_id, which is what makes consumer writes idempotent."""
+
     first = NodeEventMessage(event_type="node.kubelet_down", payload=sample_node())
     second = NodeEventMessage(event_type="node.kubelet_down", payload=sample_node())
     assert first.event_id != second.event_id
 
 
 def test_event_id_is_independent_of_correlation_id() -> None:
+    """Events sharing a cascade share a correlation id but keep distinct event ids."""
+
     cascade = "cascade-1"
     trigger = NodeEventMessage(event_type="node.disk_pressure", correlation_id=cascade, payload=sample_node())
     downstream = JobEventMessage(event_type="job.nccl_timeout", correlation_id=cascade, payload=sample_job())
     assert trigger.correlation_id == downstream.correlation_id
     assert trigger.event_id != downstream.event_id
 
-# --- Partition keys ---
-
 
 def test_partition_keys() -> None:
+    """Each topic's partition key routes an entity's events to one partition, preserving order."""
+
     assert node_event_key(NodeEventMessage(event_type="node.ready", payload=sample_node())) == "node-01"
     assert gpu_metric_key(GpuMetricMessage(event_type="gpu.metric", payload=sample_gpu())) == "node-01"
     assert job_event_key(JobEventMessage(event_type="job.completed", payload=sample_job())) == "job-1"
@@ -127,10 +133,9 @@ def test_partition_keys() -> None:
     ) == "job-1"
 
 
-# --- Topic names ---
-
-
 def test_topic_values() -> None:
+    """The Topic enum names exactly the four Kafka topics the stack provisions."""
+
     assert {topic.value for topic in Topic} == {
         "node-events",
         "gpu-metrics",

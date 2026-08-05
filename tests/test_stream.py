@@ -47,10 +47,9 @@ class CountingRedis(FakeRedis):
             self.counters[key] = int(value)
 
 
-# --- Connection manager ---
-
-
 async def test_broadcast_reaches_every_connected_client() -> None:
+    """A broadcast is delivered to every connected client."""
+
     manager = ConnectionManager()
     first, second = FakeWebSocket(), FakeWebSocket()
     await manager.connect(first)
@@ -63,6 +62,8 @@ async def test_broadcast_reaches_every_connected_client() -> None:
 
 
 async def test_a_broken_client_is_dropped_without_blocking_the_others() -> None:
+    """A client that fails mid-broadcast is dropped while healthy clients still receive the payload."""
+
     manager = ConnectionManager()
     healthy, broken = FakeWebSocket(), FakeWebSocket(working=False)
     await manager.connect(healthy)
@@ -76,6 +77,8 @@ async def test_a_broken_client_is_dropped_without_blocking_the_others() -> None:
 
 
 async def test_disconnect_removes_the_connection() -> None:
+    """Disconnecting removes the client from the broadcast set."""
+
     manager = ConnectionManager()
     websocket = FakeWebSocket()
     await manager.connect(websocket)
@@ -83,10 +86,9 @@ async def test_disconnect_removes_the_connection() -> None:
     assert manager.connection_count == 0
 
 
-# --- Per-client limiting ---
-
-
 async def test_connections_are_capped_per_client() -> None:
+    """A client is granted connections up to its cap and refused beyond it."""
+
     redis_client = CountingRedis()
     granted = [
         await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
@@ -98,6 +100,8 @@ async def test_connections_are_capped_per_client() -> None:
 
 
 async def test_a_refused_connection_does_not_consume_a_slot() -> None:
+    """A refused attempt gives its slot back, so releasing one connection frees capacity."""
+
     redis_client = CountingRedis()
     for _ in range(MAXIMUM_CONNECTIONS):
         await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
@@ -108,6 +112,8 @@ async def test_a_refused_connection_does_not_consume_a_slot() -> None:
 
 
 async def test_separate_clients_have_independent_budgets() -> None:
+    """One client exhausting its cap does not block a different address."""
+
     redis_client = CountingRedis()
     for _ in range(MAXIMUM_CONNECTIONS):
         await try_acquire(redis_client, "10.0.0.1", MAXIMUM_CONNECTIONS)
@@ -115,6 +121,8 @@ async def test_separate_clients_have_independent_budgets() -> None:
 
 
 async def test_release_never_drives_the_counter_negative() -> None:
+    """Releasing more often than acquiring floors the counter at zero rather than going negative."""
+
     redis_client = CountingRedis()
     await release(redis_client, "10.0.0.1")
     await release(redis_client, "10.0.0.1")
@@ -122,20 +130,23 @@ async def test_release_never_drives_the_counter_negative() -> None:
 
 
 async def test_a_raised_cap_admits_more_connections() -> None:
+    """Raising the cap admits the additional connections a lower cap would have refused."""
+
     redis_client = CountingRedis()
     granted = [await try_acquire(redis_client, "10.0.0.1", 100) for _ in range(50)]
     assert granted == [True] * 50
 
 
 async def test_the_cap_defaults_to_one_hundred_and_is_configurable() -> None:
+    """The per-client connection cap defaults to 100 and can be overridden by settings."""
+
     assert Settings().websocket_maximum_connections_per_client == 100
     assert Settings(websocket_maximum_connections_per_client=25).websocket_maximum_connections_per_client == 25
 
 
-# --- Payload shape ---
-
-
 async def test_stream_payload_matches_the_clusters_response_shape() -> None:
+    """The streamed payload reuses the /clusters shape, so one client model serves both."""
+
     from videre.backend.routes.stream import current_payload
 
     redis_client = CountingRedis()

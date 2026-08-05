@@ -36,6 +36,8 @@ def build_client(*, postgres_working: bool = True, redis_working: bool = True) -
 
 
 def test_healthz_reports_healthy_when_both_datastores_respond() -> None:
+    """The health check returns 200 and names both datastores when each one answers."""
+
     with build_client() as client:
         response = client.get("/healthz")
     assert response.status_code == 200
@@ -47,6 +49,8 @@ def test_healthz_reports_healthy_when_both_datastores_respond() -> None:
     [(False, True), (True, False), (False, False)],
 )
 def test_healthz_reports_503_when_a_datastore_is_unreachable(postgres_working, redis_working) -> None:
+    """Losing either datastore, or both, degrades the health check to 503."""
+
     with build_client(postgres_working=postgres_working, redis_working=redis_working) as client:
         response = client.get("/healthz")
     assert response.status_code == 503
@@ -54,6 +58,8 @@ def test_healthz_reports_503_when_a_datastore_is_unreachable(postgres_working, r
 
 
 def test_settings_build_the_expected_dsn() -> None:
+    """Settings assemble an asyncpg DSN and keep the password masked in its string form."""
+
     settings = Settings(postgres_host="db", postgres_user="u", postgres_password="p")
     dsn = settings.postgres_dsn
     assert dsn.render_as_string(hide_password=False) == "postgresql+asyncpg://u:p@db:5432/videre"
@@ -62,5 +68,7 @@ def test_settings_build_the_expected_dsn() -> None:
 
 
 def test_settings_escape_a_password_containing_url_characters() -> None:
+    """A password containing URL-significant characters survives the DSN round trip unmangled."""
+
     settings = Settings(postgres_host="db", postgres_user="u", postgres_password="p@ss/word")
-    assert settings.postgres_dsn.password == "p@ss/word"     # survives a round trip unmangled
+    assert settings.postgres_dsn.password == "p@ss/word"

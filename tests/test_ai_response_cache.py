@@ -108,34 +108,43 @@ async def run(redis, analyst, fingerprint=None, settings=None):
     )
 
 
-# --- Key derivation ---
-
-
 def test_the_key_carries_the_entity_and_a_digest() -> None:
+    """The cache key names the entity and carries a digest of its situation."""
+
     key = cache_key(make_fingerprint())
     assert key.startswith("ai:resp:gpu:gpu-1-2:")
     assert len(key.split(":")[-1]) == 16
 
 
 def test_the_same_situation_produces_the_same_key() -> None:
+    """An unchanged situation produces the same key, which is what makes the cache hit at all."""
+
     assert cache_key(make_fingerprint()) == cache_key(make_fingerprint())
 
 
 def test_a_changed_health_state_produces_a_new_key() -> None:
+    """A health-state change produces a new key."""
+
     assert cache_key(make_fingerprint()) != cache_key(make_fingerprint(health_state="FAILED"))
 
 
 def test_a_changed_failure_set_produces_a_new_key() -> None:
+    """A newly raised failure produces a new key."""
+
     assert cache_key(make_fingerprint()) != cache_key(
         make_fingerprint(failure_ids=("failure-a", "failure-b"))
     )
 
 
 def test_a_resolved_failure_produces_a_new_key() -> None:
+    """Resolving a failure produces a new key."""
+
     assert cache_key(make_fingerprint()) != cache_key(make_fingerprint(failure_ids=()))
 
 
 def test_different_entities_never_share_a_key() -> None:
+    """Two different entities never collide on one cache key."""
+
     assert cache_key(make_fingerprint(entity_id="gpu-1-2")) != cache_key(
         make_fingerprint(entity_id="gpu-1-3")
     )
@@ -144,35 +153,39 @@ def test_different_entities_never_share_a_key() -> None:
     )
 
 
-# --- Read and write ---
-
-
 async def test_a_written_analysis_reads_back() -> None:
+    """An analysis written to the cache reads back intact."""
+
     redis, fingerprint = FakeRedis(), make_fingerprint()
     await write_cached_analysis(redis, fingerprint, ANALYSIS, 420)
     assert await read_cached_analysis(redis, fingerprint) == ANALYSIS
 
 
 async def test_an_absent_key_is_a_miss() -> None:
+    """An absent key is a miss rather than an error."""
+
     assert await read_cached_analysis(FakeRedis(), make_fingerprint()) is None
 
 
 async def test_the_ttl_is_applied() -> None:
+    """The configured TTL is applied to every cached analysis."""
+
     redis, fingerprint = FakeRedis(), make_fingerprint()
     await write_cached_analysis(redis, fingerprint, ANALYSIS, 420)
     assert redis.expiries[cache_key(fingerprint)] == 420
 
 
 async def test_an_unreadable_entry_is_a_miss() -> None:
+    """A corrupt cache entry is treated as a miss rather than crashing the request."""
+
     redis, fingerprint = FakeRedis(), make_fingerprint()
     redis.values[cache_key(fingerprint)] = '{"unexpected": true}'
     assert await read_cached_analysis(redis, fingerprint) is None
 
 
-# --- Flow: a hit skips everything expensive ---
-
-
 async def test_a_cache_hit_skips_assembly_gemini_and_the_rate_limiter(spies) -> None:
+    """A cache hit skips context assembly, the rate limiter, and the model call entirely."""
+
     redis, analyst, fingerprint = FakeRedis(), SpyAnalyst(), make_fingerprint()
     await write_cached_analysis(redis, fingerprint, ANALYSIS, 420)
     
@@ -183,10 +196,9 @@ async def test_a_cache_hit_skips_assembly_gemini_and_the_rate_limiter(spies) -> 
     assert (spies["assembled"], spies["limited"], analyst.calls) == (0, 0, 0)
 
 
-# --- Flow: a miss does all three ---
-
-
 async def test_a_cache_miss_assembles_limits_calls_and_caches(spies) -> None:
+    """A miss checks the limiter, assembles context, calls the model, and caches the result."""
+
     redis, analyst, fingerprint = FakeRedis(), SpyAnalyst(), make_fingerprint()
     
     result = await run(redis, analyst, fingerprint)
@@ -197,6 +209,8 @@ async def test_a_cache_miss_assembles_limits_calls_and_caches(spies) -> None:
 
 
 async def test_a_second_request_for_the_same_situation_hits(spies) -> None:
+    """A repeat request for an unchanged situation is served from cache."""
+
     redis, analyst, fingerprint = FakeRedis(), SpyAnalyst(), make_fingerprint()
     
     await run(redis, analyst, fingerprint)
@@ -207,6 +221,8 @@ async def test_a_second_request_for_the_same_situation_hits(spies) -> None:
 
 
 async def test_a_changed_situation_misses_within_the_ttl(spies) -> None:
+    """A genuinely changed situation misses even inside the TTL window."""
+
     redis, analyst = FakeRedis(), SpyAnalyst()
     
     await run(redis, analyst, make_fingerprint(health_state="DEGRADED"))
@@ -216,10 +232,9 @@ async def test_a_changed_situation_misses_within_the_ttl(spies) -> None:
     assert analyst.calls == 2
 
 
-# --- Flow: rate limiting on a miss ---
-
-
 async def test_a_rate_limited_miss_never_calls_gemini_or_caches(monkeypatch) -> None:
+    """A rate-limited miss never reaches the model and stores nothing."""
+
     async def reject(redis_client, settings, client):
         raise RateLimitExceeded("global per-day", 400, 3600)
     

@@ -96,10 +96,9 @@ def request_body(entity_type: str = "node", entity_id: str = "node-0") -> dict:
     return {"entity_type": entity_type, "entity_id": entity_id}
 
 
-# --- Fresh request ---
-
-
 async def test_a_fresh_request_returns_an_analysis(session, client, analyst) -> None:
+    """A first request returns a freshly generated analysis for the entity."""
+
     await seed(session)
     response = await client.post("/ai/analyze", json=request_body())
     
@@ -114,16 +113,17 @@ async def test_a_fresh_request_returns_an_analysis(session, client, analyst) -> 
 
 
 async def test_every_entity_type_is_accepted(session, client) -> None:
+    """Nodes, GPUs, and jobs are all accepted as analysis targets."""
+
     await seed(session)
     for entity_type, entity_id in (("node", "node-0"), ("gpu", "gpu-0-0"), ("job", "job-1")):
         response = await client.post("/ai/analyze", json=request_body(entity_type, entity_id))
         assert response.status_code == 200, entity_type
 
 
-# --- Cache hit ---
-
-
 async def test_a_repeated_request_is_served_from_cache(session, client, analyst) -> None:
+    """A repeated request is served from cache without a second call."""
+
     await seed(session)
     await client.post("/ai/analyze", json=request_body())
     response = await client.post("/ai/analyze", json=request_body())
@@ -133,10 +133,9 @@ async def test_a_repeated_request_is_served_from_cache(session, client, analyst)
     assert analyst.calls == 1
 
 
-# --- Changed situation within the TTL ---
-
-
 async def test_a_changed_health_state_produces_a_fresh_analysis(session, client, analyst) -> None:
+    """A changed health state produces a fresh analysis rather than the cached one."""
+
     await seed(session)
     await client.post("/ai/analyze", json=request_body())
     
@@ -151,10 +150,9 @@ async def test_a_changed_health_state_produces_a_fresh_analysis(session, client,
     assert analyst.calls == 2
 
 
-# --- Validation ---
-
-
 async def test_an_unknown_entity_returns_404_without_calling_gemini(session, client, analyst) -> None:
+    """An unknown entity returns 404 before any context assembly or model call is made."""
+
     await seed(session)
     response = await client.post("/ai/analyze", json=request_body(entity_id="node-absent"))
     
@@ -163,19 +161,22 @@ async def test_an_unknown_entity_returns_404_without_calling_gemini(session, cli
 
 
 async def test_an_invalid_entity_type_returns_422(client) -> None:
+    """An entity type outside the supported set is rejected as invalid input."""
+
     assert (await client.post("/ai/analyze", json=request_body("cluster", "cluster-a"))).status_code == 422
 
 
 async def test_an_empty_entity_id_returns_422(client) -> None:
+    """An empty entity id is rejected as invalid input."""
+
     assert (await client.post("/ai/analyze", json=request_body("node", ""))).status_code == 422
-
-
-# --- Rate limiting ---
 
 
 async def test_a_rate_limited_request_returns_429_with_retry_after(
     session, client, analyst, monkeypatch
 ) -> None:
+    """A rate-limited request returns 429 with a Retry-After header and a readable message."""
+
     await seed(session)
     
     async def reject(redis_client, settings, client_id):
@@ -190,10 +191,9 @@ async def test_a_rate_limited_request_returns_429_with_retry_after(
     assert analyst.calls == 0
 
 
-# --- Provider failures ---
-
-
 async def test_an_unavailable_provider_returns_503(session) -> None:
+    """An unreachable provider surfaces to the caller as 503."""
+
     analyst = SpyAnalyst(GeminiUnavailableError("gemini unreachable"))
     application, _ = build_client(session, analyst)
     await seed(session)
@@ -206,6 +206,8 @@ async def test_an_unavailable_provider_returns_503(session) -> None:
 
 
 async def test_a_provider_error_never_leaks_upstream_detail(session) -> None:
+    """A provider error is reported without leaking the upstream message to the caller."""
+
     analyst = SpyAnalyst(GeminiRequestError("gemini rejected the request: 400 model gemini-secret-x"))
     application, _ = build_client(session, analyst)
     await seed(session)
@@ -219,6 +221,8 @@ async def test_a_provider_error_never_leaks_upstream_detail(session) -> None:
 
 
 async def test_an_unconfigured_assistant_returns_503(session) -> None:
+    """With no API key configured, the endpoint reports the assistant unavailable."""
+
     application, _ = build_client(session, None)
     await seed(session)
     

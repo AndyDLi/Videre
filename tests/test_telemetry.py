@@ -16,6 +16,8 @@ def _run_job_on(state, node_id: str) -> None:
 
 
 def test_idle_node_gpus_settle_low_and_cool() -> None:
+    """GPUs on a node running no job drift toward low utilization and a cool temperature."""
+
     state = build_cluster_state()
     for _ in range(20):
         advance_gpu_telemetry(state, Random(0))
@@ -25,6 +27,8 @@ def test_idle_node_gpus_settle_low_and_cool() -> None:
 
 
 def test_busy_node_gpus_climb_and_warm() -> None:
+    """GPUs on a node running a job climb in utilization, warm up, and consume memory."""
+
     state = build_cluster_state()
     _run_job_on(state, "node-0")
     for _ in range(20):
@@ -36,6 +40,8 @@ def test_busy_node_gpus_climb_and_warm() -> None:
 
 
 def test_failed_gpu_reports_no_utilization() -> None:
+    """A FAILED GPU reports zero utilization even while its node is busy."""
+
     state = build_cluster_state()
     _run_job_on(state, "node-0")
     gpu = state.gpus["gpu-0-0"]
@@ -46,6 +52,8 @@ def test_failed_gpu_reports_no_utilization() -> None:
 
 
 def test_throttling_gpu_stays_hot_even_when_utilization_drops() -> None:
+    """A THROTTLING GPU holds a thermal-limit temperature regardless of how far utilization falls."""
+
     state = build_cluster_state()
     _run_job_on(state, "node-0")
     gpu = state.gpus["gpu-0-0"]
@@ -56,6 +64,8 @@ def test_throttling_gpu_stays_hot_even_when_utilization_drops() -> None:
 
 
 def test_telemetry_never_leaves_the_valid_model_range() -> None:
+    """Repeated telemetry ticks keep every GPU field inside the bounds the model validates."""
+
     state = build_cluster_state()
     _run_job_on(state, "node-0")
     for _ in range(50):

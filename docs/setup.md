@@ -8,8 +8,6 @@ This document captures the host configuration required to recreate the environme
 
 Videre is available on-demand and started manually. While the machine is on for normal daily use, the stack stays stopped and consumes no resources: k3s does not auto-start, and the WSL VM is not held up. The stack, and its public URL, are up only while a demo is explicitly running (see "Starting and Stopping the Demo").
 
-The recorded README walkthrough is the primary demonstration artifact. For planned extended availability, such as soak testing or recording a demo, temporarily suppress sleep: `presentationsettings /start`. Restore normal sleep behavior afterwards: `presentationsettings /stop`.
-
 ## WSL2 Resource Limits
 
 `C:\Users\andyd\.wslconfig`:
@@ -38,21 +36,6 @@ wsl --manage Ubuntu-24.04 --set-sparse true
 - Changes to `.wslconfig` apply only after WSL has fully stopped: `wsl --shutdown`.
 - Wait approximately 10 seconds before reopening the distribution. Verify the active limits from within Ubuntu: `nproc` → 4, `free -h` → ~7.8Gi total with 2.0Gi of swap.
 
-## Distro Configuration
-
-`/etc/wsl.conf` enables `systemd`, which is required because both k3s and Tailscale install and run as systemd-managed services:
-
-```ini
-[boot]
-systemd=true
-
-[user]
-default=andyd
-```
-
-- Apply operating-system updates manually with: `sudo apt update && sudo apt full-upgrade -y`.
-- Automatic security updates are also enabled through `unattended-upgrades`. In `/etc/apt/apt.conf.d/20auto-upgrades`, both `Update-Package-Lists` and `Unattended-Upgrade` are set to `"1"`.
-
 ## Manual Startup (WSL and k3s)
 
 To ensure Videre only runs when explicitly started, disable k3s auto-start:
@@ -62,31 +45,6 @@ To ensure Videre only runs when explicitly started, disable k3s auto-start:
   ```
 
 Opening the Ubuntu terminal will still boot the WSL VM on demand. While the lightweight `tailscaled` service auto-starts to maintain network connectivity, k3s and its workloads remain offline. This design ensures that following a Windows restart, the demo consumes no resources until manually launched.
-
-## Deploying the Manifests
-
-Everything in `k8s/` is applied with one command:
-
-```bash
-kubectl apply -k k8s/
-```
-
-Run it after changing anything under `k8s/`. CI deploys new container images on every push to main, but it holds no permission to apply anything else — the `videre-deployer` ServiceAccount is scoped to patching Deployments — so ConfigMap, Service, and dashboard changes reach the cluster only through this command.
-
-The command is safe to re-run at any time. CI writes each deployed image tag back into the Deployment manifests, so the tags in Git match what is running and applying them changes nothing. Do not hand-edit those three `image:` lines; the next push to main overwrites them.
-
-A from-scratch rebuild needs three steps in order:
-
-1. Create the four Secrets. They are deliberately never committed, so nothing in Git creates them: `postgres-secret`, `postgres-app-secret`, `gemini-secret`, and `grafana-secret`. Without them the Postgres, backend, and Grafana pods stall in `CreateContainerConfigError`.
-2. Run `kubectl apply -k k8s/`.
-3. Apply the two manifests the kustomization leaves out:
-
-   ```bash
-   kubectl apply -f k8s/kafka/30-topics-job.yaml
-   kubectl apply -f k8s/traefik/01-helmchartconfig.yaml
-   ```
-
-   Both are bootstrap-only. The Kafka topics Job deletes itself after it completes, so a routine apply would recreate it and start a Kafka container to redo settled work. The Traefik `HelmChartConfig` triggers a Helm redeploy that briefly drops public ingress.
 
 ## Starting and Stopping the Demo
 
@@ -110,8 +68,6 @@ Both steps are needed. Stopping k3s leaves the containers themselves running, so
 ## Tailscale and Funnel
 
 Videre's public endpoint is: `https://ragingasian.tail462d2b.ts.net`.
-
-Tailscale Funnel exposes the selected local service through Tailscale's HTTPS edge. Funnel supports public exposure on ports 443/8443/10000; TLS terminates on this machine, using a certificate that Tailscale issues and renews automatically, and Funnel bandwidth limits are managed by Tailscale rather than configured locally.
 
 - Install Tailscale inside Ubuntu: `curl -fsSL https://tailscale.com/install.sh | sh`.
 - Then `sudo tailscale up` and complete the browser-based authentication flow.
@@ -158,3 +114,31 @@ Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss |
   Get-ItemProperty | Where-Object DistributionName -eq 'Ubuntu-24.04' |
   ForEach-Object { Get-Item "$($_.BasePath)\ext4.vhdx" }
 ```
+
+## Deployed Footprint
+
+Measured with the full stack running: nine infrastructure and application pods plus the simulator's materialized job pods.
+
+| Measure | Baseline | Deployed | Limit |
+|---|---|---|---|
+| Distribution memory | 1.4Gi | 3.0Gi of 7.8Gi | 8 GB WSL2 cap |
+| Distribution disk (`df -h /`) | 21G | 33G used, 923G free | ~20 GB project budget |
+| Namespace CPU requests | — | 1195m | 3 |
+| Namespace memory requests | — | 2384Mi | 5Gi |
+| Namespace memory limits | — | 5152Mi | 6500Mi |
+| Namespace storage requests | — | 14Gi | 16Gi |
+| Live pod usage | — | 225m CPU, 1388Mi | — |
+
+Everything sits inside its cap. Actual PVC consumption is far below the claims reserved for it:
+
+| Store | On disk | Claim |
+|---|---|---|
+| Prometheus TSDB | 262M | 4Gi |
+| Kafka logs | 146M | 4Gi |
+| Postgres data | 121M | 2Gi |
+| Grafana database | 49M | 1Gi |
+| Loki chunks and index | 5M | 3Gi |
+
+The largest consumer is not a claim at all. The k3s image store holds **5.5G**, roughly ten times every PVC combined, because each CI merge publishes three SHA-tagged images and nothing removes the ones no longer referenced. No retention policy covers it. Reclaim the space with `sudo k3s crictl rmi --prune` when the distribution disk grows.
+
+The WSL2 virtual disk grows on demand and never shrinks on its own. `sparseVhd=true` limits how far it overshoots, but returning space to Windows needs a manual compact after a large deletion.

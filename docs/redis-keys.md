@@ -6,11 +6,11 @@ All keys use `:` as the hierarchy separator.
 
 ## Namespaces
 
-| Prefix | Purpose | Phase | TTL | Safe to lose? |
-|---|---|---|---|---|
-| `cache:` | Cached read models that can be rebuilt from PostgreSQL | 4 | Seconds to minutes | Yes |
-| `ratelimit:` | Windowed counters used to enforce connection, message, and AI usage limits | 4, 6 | Applicable window | No |
-| `ai:` | Fingerprint-keyed cache of AI assistant responses | 6 | ~5–10 min | Yes |
+| Prefix | Purpose | TTL | Safe to lose? |
+|---|---|---|---|
+| `cache:` | Cached read models that can be rebuilt from PostgreSQL. | Seconds to minutes | Yes |
+| `ratelimit:` | Windowed counters used to enforce connection, message, and AI usage limits. | Applicable window | No |
+| `ai:` | Fingerprint-keyed cache of AI assistant responses. | ~5–10 min | Yes |
 
 ## Key Formats
 
@@ -40,5 +40,4 @@ ai:resp:<entity_type>:<entity_id>:<digest>
 - Set a TTL on every key. Cache keys expire to prevent stale reads. Rate-limit keys expire when their enforcement window ends.
 - Use Redis `noeviction`. Redis must reject writes when it reaches its memory limit rather than silently evicting keys.
 - Never allow rate-lmiit counters to be evicted. Losing them can temporarily bypass WebSocket or AI quota enforcement.
-- TTL expiration remains active under `noeviction`; expired keys are still removed normally.
 - The configured Redis memory limit should comfortably exceed the expected dataset size. At Videre's scale, reaching the limit is not expected. Rejecting writes is nevertheless safer than weakening quota enforcement.
