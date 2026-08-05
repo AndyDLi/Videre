@@ -24,7 +24,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: ghcr.io/andydli/videre-frontend:0.9.2-a9f3fde
+          image: ghcr.io/andydli/videre-frontend:0.9.2-42634dd
           ports:
             - name: http
               containerPort: 8080
