@@ -40,6 +40,22 @@ def test_enum_columns_allow_exactly_their_python_enum(table_name, column_name, e
     assert expression.count("'") == 2 * len(list(enum_type))
 
 
+@pytest.mark.parametrize(
+    ("table_name", "column_name"),
+    [
+        ("jobs", "updated_at"),
+        ("failure_records", "detected_at"),
+        ("scheduler_events", "timestamp"),
+    ],
+)
+def test_every_column_retention_prunes_by_is_indexed(table_name, column_name) -> None:
+    """Each column the retention sweep filters on carries an index, so the hourly pass stays cheap."""
+
+    table = Base.metadata.tables[f"{SCHEMA_NAME}.{table_name}"]
+    indexed = {column.name for index in table.indexes for column in index.columns}
+    assert column_name in indexed
+
+
 @pytest.mark.parametrize("table_name", ["scheduler_events", "failure_records"])
 def test_append_only_tables_deduplicate_on_event_id(table_name) -> None:
     """Append-only tables carry a unique event_id, so Kafka redelivery cannot duplicate a row."""

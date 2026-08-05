@@ -121,7 +121,7 @@ class Job(Base):
     __table_args__ = (
         enum_check("lifecycle_state", JobState),
         Index("ix_jobs_lifecycle_state", "lifecycle_state"),
-        Index("ix_jobs_completed_at", "completed_at"),    # used for retention pruning
+        Index("ix_jobs_updated_at", "updated_at"),    # retention prunes by the last event a job received
     )
     
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
