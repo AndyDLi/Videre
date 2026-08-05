@@ -74,7 +74,7 @@ export function FailuresPage() {
             <PageHeading
                 eyebrow="Incident Log"
                 title="Failed Jobs & Unavailable Nodes"
-                description="Every failure record the cluster has raised, newest first, within the three-day retention window."
+                description="Every failure record the cluster has raised, newest first."
             />
 
             <div className="mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t border-border-subtle pt-5">

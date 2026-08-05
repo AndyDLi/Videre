@@ -2,8 +2,6 @@
 
 # 🔭 Videre
 
-[![Live Demo](https://img.shields.io/badge/demo-on_demand-orange?style=for-the-badge)](https://ragingasian.tail462d2b.ts.net)
-
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.140-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Kafka](https://img.shields.io/badge/Kafka-4.3-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
@@ -26,6 +24,10 @@
 
 ---
 
+
+
+---
+
 ## 📋 Table of Contents
 
 - [✨ What It Does](#-what-it-does)
@@ -35,8 +37,6 @@
 - [📚 Additional Documentation](#-additional-documentation)
 - [📜 License](#-license)
 - [👤 Author](#-author)
-
----
 
 ## ✨ What It Does
 
@@ -194,6 +194,8 @@ flowchart LR
 - The AI assistant queries all three data stores concurrently. Postgres serves the structured state, Prometheus serves the metrics, and Loki serves the logs, allowing the model to align failure records, metric movement, and container log lines from the same window, tracing cascading symptoms back to their root causes.
 
 ## 🚀 Running It Yourself
+
+Videre is available on-demand and started manually. While the machine is on for normal daily use, the stack stays stopped and consumes no resources: k3s does not auto-start, and the WSL VM is not held up. The stack, and its public URL, are up only while a demo is explicitly running (see `docs/setup.md` for more information).
 
 ### Prerequisites
 

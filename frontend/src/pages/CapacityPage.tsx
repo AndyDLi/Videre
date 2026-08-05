@@ -64,7 +64,7 @@ export function CapacityPage() {
             <PageHeading
                 eyebrow="Where Capacity Goes"
                 title="Capacity Bottlenecks"
-                description="Ranked by how much capacity each one is costing, highest first."
+                description="Ranked by how much capacity each one is costing."
             />
 
             {summaries.map((summary) => (

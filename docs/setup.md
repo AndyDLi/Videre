@@ -95,50 +95,43 @@ Inspect the active configuration with `tailscale funnel status`, and remove it w
 
 Once WSL has shut down, the public URL returns `502 Bad Gateway` because nothing is listening behind port 80. This is expected under the on-demand availability model, and the Funnel configuration itself stays in place.
 
-## Baseline Idle Usage
+## Footprint
 
-These measurements establish the host's pre-stack baseline. Compare future measurements against them to estimate the actual footprint of Videre after deployment, which is expected to use approximately 3 to 5 GB of additional memory and storage depending on workloads, images, and retained data.
+### Memory
 
-| Measure | Value |
-|---|---|
-| Idle distribution memory usage | 1.4Gi of 7.8Gi |
-| Distribution disk usage (`df -h /`) | 21G used, 936G free |
-| Windows-side VHDX size | 29.5GB, sparse |
-
-The current VHDX path is: `C:\Users\andyd\AppData\Local\wsl\{12b8dd3b-529a-41dc-80f5-ec8372af710d}\ext4.vhdx`.
-
-The distribution GUID changes after a reinstall. Locate the active Ubuntu 24.04 VHDX with:
-
-```powershell
-Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss |
-  Get-ItemProperty | Where-Object DistributionName -eq 'Ubuntu-24.04' |
-  ForEach-Object { Get-Item "$($_.BasePath)\ext4.vhdx" }
-```
-
-## Deployed Footprint
-
-Measured with the full stack running: nine infrastructure and application pods plus the simulator's materialized job pods.
-
-| Measure | Baseline | Deployed | Limit |
-|---|---|---|---|
-| Distribution memory | 1.4Gi | 3.0Gi of 7.8Gi | 8 GB WSL2 cap |
-| Distribution disk (`df -h /`) | 21G | 33G used, 923G free | ~20 GB project budget |
-| Namespace CPU requests | — | 1195m | 3 |
-| Namespace memory requests | — | 2384Mi | 5Gi |
-| Namespace memory limits | — | 5152Mi | 6500Mi |
-| Namespace storage requests | — | 14Gi | 16Gi |
-| Live pod usage | — | 225m CPU, 1388Mi | — |
-
-Everything sits inside its cap. Actual PVC consumption is far below the claims reserved for it:
-
-| Store | On disk | Claim |
+| Component | Current Usage | Limit / Capacity |
 |---|---|---|
+| WSL2 VM (Stack Running) | 3.8 Gi | 7.8 Gi |
+| WSL2 VM (Stack Stopped) | 1.4 Gi | 7.8 Gi |
+| Namespace Requests | 2352 Mi | 5 Gi |
+| Namespace Limits | 5088 Mi | 6500 Mi |
+| Videre Pods | 1440 Mi | Not Enforced |
+| Per-Container Max | — | 3 Gi | 
+
+*Note*: Memory for Videre Pods are not enforced as a group. Enforcement happens per-container.
+
+### CPU
+
+| Component | Current Usage | Limit / Capacity |
+|---|---|---|
+| WSL2 VM | — | 4 Cores |
+| Namespace Requests | 1185m | 3 Cores |
+| Namespace Limits | — | Not Enforced |
+| Videre Pods | 171m | Not Enforced |
+| Per-Container Max | — | 4 Cores |
+
+*Note*: Namespace Limits are not enforced because Request and core count already bound it. In addition, like memory, CPU usage is measured dynamically across the Pods, not strictly capped as an aggregate group.
+
+### Storage
+
+| Component | Current Usage | Limit / Capacity |
+|---|---|---|
+| Total Videre Footprint | 7.2G | ~20 GB Project Budget |
+| Namespace Claims | 14Gi | 16Gi |
+| PVC Count | 5 Volumes | 10 Volumes |
 | Prometheus TSDB | 262M | 4Gi |
-| Kafka logs | 146M | 4Gi |
-| Postgres data | 121M | 2Gi |
-| Grafana database | 49M | 1Gi |
-| Loki chunks and index | 5M | 3Gi |
-
-The largest consumer is not a claim at all. The k3s image store holds **5.5G**, roughly ten times every PVC combined, because each CI merge publishes three SHA-tagged images and nothing removes the ones no longer referenced. No retention policy covers it. Reclaim the space with `sudo k3s crictl rmi --prune` when the distribution disk grows.
-
-The WSL2 virtual disk grows on demand and never shrinks on its own. `sparseVhd=true` limits how far it overshoots, but returning space to Windows needs a manual compact after a large deletion.
+| Kafka Logs | 146M | 4Gi |
+| Postgres Data | 121M | 2Gi |
+| Grafana Database | 49M | 1Gi |
+| Loki Chunks & Index | 5M | 3Gi |
+| containerd Image Store | 5.6G | Not Enforced |
