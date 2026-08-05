@@ -1,13 +1,11 @@
 # Prometheus Metrics
 
-The backend exposes `/metrics` on port 8000 in Prometheus exposition format. Prometheus scrapes it directly through the in-cluster `backend` Service.
+The backend exposes `/metrics` on port 8000. Prometheus periodically uses the Kubernetes network (via the in-cluster `backend` Service) to scrape metrics from it. Continuous numeric telemetry lives here, while structured records (failure records, scheduler events, job rows) stay in Postgres.
 
 Values come from two writers inside the backend process:
 
-- The Kafka consumer, after each event's Postgres transaction commits.
-- The cache-refresh loop for cluster rollups.
-
-Continuous numeric telemetry lives here, while structured records (failure records, scheduler events, job rows) stay in Postgres.
+- The Kafka consumer, strictly after each event's Postgres transaction commits.
+- The cache-refresh loop for cluster-wide aggregations.
 
 ## Domain Metrics
 

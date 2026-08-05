@@ -35,7 +35,7 @@ Tests, image builds, and registry pushes run on GitHub's hosted runners (`ubuntu
 Three verification jobs run in parallel on every push to `main` and on all pull requests:
 
 - **Backend & Simulator** (`test-python`): uses uv to install locked dependencies, lint code, enforce static type safety, and execute test suites.
-- **Frontend** (`check-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, formatting verification, and unit tests.
+- **Frontend** (`check-frontend`): uses Node.js 24 to run TypeScript type-checking, linting, and formatting verification.
 - **Kubernetes manifests** (`check-manifests`): renders `k8s/kustomization.yaml` with `kubectl kustomize`. `kubectl apply -k k8s/` applies the stack, so a broken kustomization has to fail in review rather than at the terminal.
 
 ### 2. Packaging & Publishing (`main` only)
@@ -47,6 +47,6 @@ Once verification succeeds on `main`, the `build-and-push` job compiles and publ
 
 ### 3. Cluster Deployment & Security Auditing
 
-- Before deploying, an automated security check executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, spawning Pods, or accessing resources outside the `videre` namespace, and asserts that Kubernetes denies every request.
+- Before deploying, an automated security check executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, deleting Deployments, spawning Pods, and accessing resources outside the `videre` namespace, asserting that Kubernetes denies every one.
 - Issues `kubectl set image` commands to update the simulator, backend, and frontend deployments to the newly minted container tags.
 - Monitors the clusters to ensure all new pods become healthy and ready before marking the pipeline as successful, and reports a post-deploy final state of the namespace for auditing.

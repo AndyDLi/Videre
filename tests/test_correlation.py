@@ -31,24 +31,29 @@ def _domain(event_type: EventType) -> str:
     return event_type.value.split(".", 1)[0]
 
 
-# --- Rule table is comprehensive and varied ---
-
-
 def test_no_duplicate_trigger_downstream_pairs() -> None:
+    """No trigger-downstream pair is declared twice, so no correlation is double-weighted."""
+
     pairs = [(rule.trigger, rule.downstream) for rule in CORRELATION_RULES]
     assert len(pairs) == len(set(pairs))
 
 
 def test_no_rule_triggers_itself() -> None:
+    """No rule points an event at itself, which would be a trivial infinite cascade."""
+
     assert all(rule.trigger is not rule.downstream for rule in CORRELATION_RULES)
 
 
 def test_rules_span_every_source_domain() -> None:
+    """Triggers originate from the GPU, node, and capacity domains alike."""
+
     trigger_domains = {_domain(rule.trigger) for rule in CORRELATION_RULES}
     assert trigger_domains == {"gpu", "node", "capacity"}
 
 
 def test_rules_cover_the_intended_cross_domain_transitions() -> None:
+    """Every intended cross-domain transition, such as GPU to job, has at least one rule."""
+
     transitions = {(_domain(rule.trigger), _domain(rule.downstream)) for rule in CORRELATION_RULES}
     for expected in [("gpu", "job"), ("gpu", "gpu"), ("node", "node"), ("node", "job"),
                      ("node", "capacity"), ("capacity", "job")]:
@@ -56,16 +61,17 @@ def test_rules_cover_the_intended_cross_domain_transitions() -> None:
 
 
 def test_multi_hop_cascade_is_possible() -> None:
+    """Some downstream event is itself a trigger, so cascades can run more than one hop."""
+
     triggers = {rule.trigger for rule in CORRELATION_RULES}
     downstreams = {rule.downstream for rule in CORRELATION_RULES}
     assert triggers & downstreams
 
 
-# --- Weighted baseline ---
-
-
 def test_baseline_weights_produce_expected_skew() -> None:
-    engine = make_engine(rules=[])  # isolate weighting from correlation
+    """Weighted selection makes common failures far more frequent than rare ones over many draws."""
+
+    engine = make_engine(rules=[])
     target = EventTarget(node_id="node-01")
     counts: Counter[EventType] = Counter()
     for _ in range(20000):
@@ -76,10 +82,9 @@ def test_baseline_weights_produce_expected_skew() -> None:
     assert counts[EventType.GPU_THERMAL_THROTTLING] > counts[EventType.GPU_ECC_UNCORRECTABLE] * 5
 
 
-# --- Baseline injection is occasional and uncorrelated ---
-
-
 def test_baseline_injection_is_occasional_and_uncorrelated() -> None:
+    """Baseline failures fire only sometimes, each at depth zero with its own correlation id."""
+
     engine = CorrelationEngine(rules=[], baseline_failure_probability=0.1, random_generator=Random(1))
     target = EventTarget(node_id="node-01")
     emitted = [engine.maybe_emit_baseline(target, now=0.0) for _ in range(1000)]
@@ -89,10 +94,9 @@ def test_baseline_injection_is_occasional_and_uncorrelated() -> None:
     assert len({event.correlation_id for event in events}) == len(events)
 
 
-# --- Triggered correlated event is within configured window ---
-
-
 def test_correlated_event_scheduled_within_delay_window() -> None:
+    """A triggered event fires inside its configured delay window, inheriting the correlation id and node."""
+
     rule = CorrelationRule(
         trigger=EventType.GPU_THERMAL_THROTTLING,
         downstream=EventType.JOB_NCCL_TIMEOUT,
@@ -115,16 +119,15 @@ def test_correlated_event_scheduled_within_delay_window() -> None:
     assert len(downstream) == 1
     event = downstream[0]
     assert event.event_type is EventType.JOB_NCCL_TIMEOUT
-    assert event.correlation_id == "cascade-1"  # inherited correlation ID
+    assert event.correlation_id == "cascade-1"
     assert event.depth == 1
     assert 100.0 + 30.0 <= event.fire_at <= 100.0 + 90.0
-    assert event.target.node_id == "node-01"    # same node ID as the trigger event
-
-
-# --- Cascade and fanout limits ---
+    assert event.target.node_id == "node-01"
 
 
 def test_cascade_depth_is_capped() -> None:
+    """A self-perpetuating rule still terminates at the configured cascade depth."""
+
     rule = CorrelationRule(
         trigger=EventType.GPU_THERMAL_THROTTLING,
         downstream=EventType.GPU_THERMAL_THROTTLING,
@@ -146,6 +149,8 @@ def test_cascade_depth_is_capped() -> None:
 
 
 def test_fanout_per_event_is_capped() -> None:
+    """One event spawns at most the configured number of downstream events, however many rules match."""
+
     trigger = EventType.GPU_THERMAL_THROTTLING
     downstreams = [EventType.JOB_NCCL_TIMEOUT, EventType.JOB_OOM_KILL, EventType.JOB_STRAGGLER]
     rules = [
@@ -161,10 +166,9 @@ def test_fanout_per_event_is_capped() -> None:
     assert len(engine.fire_due(now=10.0)) == 2
 
 
-# --- Validate rule config ---
-
-
 def test_correlation_rule_rejects_invalid_config() -> None:
+    """A rule is rejected if its probability is out of range or its delay window is inverted."""
+
     with pytest.raises(ValidationError):
         CorrelationRule(
             trigger=EventType.GPU_XID_ERROR, downstream=EventType.JOB_OOM_KILL,

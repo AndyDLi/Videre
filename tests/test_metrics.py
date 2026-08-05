@@ -54,10 +54,9 @@ def build_isolated_client() -> tuple[TestClient, CollectorRegistry]:
     return TestClient(application), registry
 
 
-# --- Completeness ---
-
-
 def test_the_four_topic_groups_partition_every_failure_event_type() -> None:
+    """The four metric groups together cover every failure event type."""
+
     grouped = (
         NODE_FAILURE_EVENT_TYPES
         | GPU_ERROR_EVENT_TYPES
@@ -68,6 +67,8 @@ def test_the_four_topic_groups_partition_every_failure_event_type() -> None:
 
 
 def test_the_four_topic_groups_do_not_overlap() -> None:
+    """No failure event type is counted by two metric groups at once."""
+
     groups = (
         NODE_FAILURE_EVENT_TYPES,
         GPU_ERROR_EVENT_TYPES,
@@ -77,10 +78,9 @@ def test_the_four_topic_groups_do_not_overlap() -> None:
     assert sum(len(group) for group in groups) == len(set().union(*groups))
 
 
-# --- GPU telemetry gauges ---
-
-
 def test_gpu_metric_event_sets_every_gpu_gauge() -> None:
+    """A GPU metric event sets utilization, temperature, and both memory gauges."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-gauges"
     gpu.utilization_percentage = 73.5
@@ -99,6 +99,8 @@ def test_gpu_metric_event_sets_every_gpu_gauge() -> None:
 
 
 def test_gpu_gauges_are_overwritten_by_the_next_event() -> None:
+    """A later event overwrites the previous gauge values rather than accumulating them."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-overwrite"
     
@@ -115,6 +117,8 @@ def test_gpu_gauges_are_overwritten_by_the_next_event() -> None:
 
 
 def test_gpu_health_state_marks_exactly_one_state_active() -> None:
+    """The GPU health state-set marks exactly one state active and zeroes the rest."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-health"
     gpu.health_state = GpuHealthState.DEGRADED
@@ -131,6 +135,8 @@ def test_gpu_health_state_marks_exactly_one_state_active() -> None:
 
 
 def test_gpu_health_state_clears_the_previous_state_on_recovery() -> None:
+    """Recovery clears the previous GPU state, so only the current one reads as active."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-recovery"
     
@@ -148,10 +154,9 @@ def test_gpu_health_state_clears_the_previous_state_on_recovery() -> None:
     assert read("videre_gpu_health_state", **labels, state=GpuHealthState.HEALTHY.value) == 1.0
 
 
-# --- Node telemetry gauges ---
-
-
 def test_node_health_state_marks_exactly_one_state_active() -> None:
+    """The node health state-set marks exactly one state active and zeroes the rest."""
+
     node = sample_node(NodeHealthState.DRAINING)
     node.id = "metrics-node-health"
     
@@ -165,6 +170,8 @@ def test_node_health_state_marks_exactly_one_state_active() -> None:
 
 
 def test_node_health_state_clears_the_previous_state_on_recovery() -> None:
+    """Recovery clears the previous node state, so only the current one reads as active."""
+
     node = sample_node(NodeHealthState.NOT_READY)
     node.id = "metrics-node-recovery"
     
@@ -180,10 +187,9 @@ def test_node_health_state_clears_the_previous_state_on_recovery() -> None:
     assert read("videre_node_health_state", node_id=node.id, state=NodeHealthState.READY.value) == 1.0
 
 
-# --- Counters ---
-
-
 def test_gpu_error_event_increments_the_error_counter() -> None:
+    """A GPU fault increments the error counter for that GPU and error type."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-errors"
     labels = {"node_id": gpu.node_id, "gpu_id": gpu.id, "error_type": EventType.GPU_XID_ERROR.value}
@@ -197,6 +203,8 @@ def test_gpu_error_event_increments_the_error_counter() -> None:
 
 
 def test_routine_gpu_telemetry_does_not_increment_the_error_counter() -> None:
+    """Routine telemetry leaves the GPU error counter untouched."""
+
     gpu = sample_gpu()
     gpu.id = "metrics-gpu-no-error"
     labels = {"node_id": gpu.node_id, "gpu_id": gpu.id, "error_type": LifecycleEventType.GPU_METRIC.value}
@@ -209,6 +217,8 @@ def test_routine_gpu_telemetry_does_not_increment_the_error_counter() -> None:
 
 
 def test_node_failure_event_increments_the_node_failure_counter() -> None:
+    """A node fault increments the node failure counter for that failure mode."""
+
     node = sample_node(NodeHealthState.NOT_READY)
     node.id = "metrics-node-failures"
     labels = {"node_id": node.id, "failure_mode": EventType.NODE_DISK_PRESSURE.value}
@@ -222,6 +232,8 @@ def test_node_failure_event_increments_the_node_failure_counter() -> None:
 
 
 def test_job_completion_increments_only_the_completion_counter() -> None:
+    """A completion increments completions and nothing else."""
+
     completions_before = read("videre_job_completions_total")
     failures_before = read("videre_job_failures_total", failure_mode=EventType.JOB_OOM_KILL.value)
     
@@ -234,6 +246,8 @@ def test_job_completion_increments_only_the_completion_counter() -> None:
 
 
 def test_job_failure_increments_its_own_failure_mode_only() -> None:
+    """A job failure increments only its own failure mode."""
+
     before = read("videre_job_failures_total", failure_mode=EventType.JOB_NCCL_TIMEOUT.value)
     other_before = read("videre_job_failures_total", failure_mode=EventType.JOB_PREEMPTED.value)
     
@@ -246,6 +260,8 @@ def test_job_failure_increments_its_own_failure_mode_only() -> None:
 
 
 def test_capacity_event_increments_the_capacity_counter() -> None:
+    """A capacity event increments the capacity counter for its event type."""
+
     before = read("videre_capacity_events_total", event_type=EventType.CAPACITY_FRAGMENTATION.value)
     scheduler_event = SchedulerEvent(
         id="metrics-scheduler-1",
@@ -265,6 +281,8 @@ def test_capacity_event_increments_the_capacity_counter() -> None:
 
 
 def test_no_counter_is_labelled_by_an_unbounded_field() -> None:
+    """No metric is labelled by an unbounded field, which is what keeps series cardinality flat."""
+
     unbounded = {"job_id", "event_id", "correlation_id", "timestamp", "reason"}
     for name in (
         "videre_gpu_error_events_total",
@@ -276,10 +294,9 @@ def test_no_counter_is_labelled_by_an_unbounded_field() -> None:
         assert not unbounded & set(collector._labelnames)
 
 
-# --- Cluster snapshot rollups ---
-
-
 def test_snapshot_gauges_report_job_counts_and_zero_absent_states() -> None:
+    """Snapshot rollups report job counts per state and zero the states with none."""
+
     snapshot = ClusterHealthSnapshot(
         cluster_id="metrics-cluster",
         cluster_name="metrics-cluster",
@@ -297,6 +314,8 @@ def test_snapshot_gauges_report_job_counts_and_zero_absent_states() -> None:
 
 
 def test_snapshot_gauges_drop_a_state_back_to_zero_when_it_empties() -> None:
+    """A state that empties drops back to zero rather than holding its last value."""
+
     full = ClusterHealthSnapshot(
         cluster_id="metrics-cluster-drain",
         cluster_name="metrics-cluster-drain",
@@ -315,6 +334,8 @@ def test_snapshot_gauges_drop_a_state_back_to_zero_when_it_empties() -> None:
 
 
 def test_recording_no_snapshots_leaves_the_unresolved_gauge_untouched() -> None:
+    """Recording an empty snapshot list leaves the unresolved-failure gauge as it was."""
+
     record_cluster_snapshots([
         ClusterHealthSnapshot(cluster_id="metrics-cluster-keep", cluster_name="k", unresolved_failure_count=9)
     ])
@@ -323,10 +344,9 @@ def test_recording_no_snapshots_leaves_the_unresolved_gauge_untouched() -> None:
     assert read("videre_unresolved_failures") == 9.0
 
 
-# --- The /metrics endpoint ---
-
-
 def test_metrics_endpoint_returns_prometheus_exposition_format() -> None:
+    """The metrics endpoint returns valid Prometheus exposition format."""
+
     with build_client() as client:
         response = client.get("/metrics")
 
@@ -337,6 +357,8 @@ def test_metrics_endpoint_returns_prometheus_exposition_format() -> None:
 
 
 def test_metrics_endpoint_declares_the_http_service_metrics() -> None:
+    """The endpoint declares the standard HTTP service metrics."""
+
     with build_client() as client:
         response = client.get("/metrics")
 
@@ -345,6 +367,8 @@ def test_metrics_endpoint_declares_the_http_service_metrics() -> None:
 
 
 def test_process_and_runtime_metrics_are_exposed() -> None:
+    """Process and Python runtime metrics are exposed alongside the domain metrics."""
+
     with build_client() as client:
         response = client.get("/metrics")
 
@@ -352,10 +376,9 @@ def test_process_and_runtime_metrics_are_exposed() -> None:
     assert "python_gc_objects_collected_total" in response.text
 
 
-# --- HTTP service metrics, against an isolated registry ---
-
-
 def test_requests_are_counted_by_route_template_and_exact_status() -> None:
+    """Requests are counted by route template and exact status code."""
+
     client, registry = build_isolated_client()
     client.get("/nodes/node-0")
     client.get("/nodes/node-1")
@@ -369,6 +392,8 @@ def test_requests_are_counted_by_route_template_and_exact_status() -> None:
 
 
 def test_latency_is_recorded_per_route() -> None:
+    """Request latency is recorded per route."""
+
     client, registry = build_isolated_client()
     client.get("/nodes/node-0")
 
@@ -378,6 +403,8 @@ def test_latency_is_recorded_per_route() -> None:
 
 
 def test_untemplated_paths_are_grouped_to_bound_cardinality() -> None:
+    """Unmatched paths are grouped rather than minting a label value for each one."""
+
     client, registry = build_isolated_client()
     client.get("/wp-login.php")
     client.get("/.env")
@@ -391,6 +418,8 @@ def test_untemplated_paths_are_grouped_to_bound_cardinality() -> None:
 
 
 def test_probe_and_scrape_traffic_is_excluded_from_http_metrics() -> None:
+    """Health probes and metric scrapes are excluded, so internal traffic is not counted as API usage."""
+
     client, registry = build_isolated_client()
     client.get("/healthz")
     client.get("/metrics")

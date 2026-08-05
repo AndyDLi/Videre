@@ -9,10 +9,10 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, Delete, delete
+from sqlalchemy import CursorResult, Delete, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from videre.database.tables import FailureRecord, Job, SchedulerEventRecord
+from videre.database.tables import FailureEntityTable, FailureRecord, Job, SchedulerEventRecord
 
 logger = logging.getLogger("videre.backend.retention")
 
@@ -30,12 +30,14 @@ async def prune_once(session: AsyncSession, cutoff: datetime) -> dict[str, int]:
         "failure_records": await _delete_rows(
             session,
             delete(FailureRecord).where(
-                FailureRecord.resolved_at.is_not(None), FailureRecord.resolved_at < cutoff
+                FailureRecord.detected_at < cutoff,
+                or_(
+                    FailureRecord.resolved_at.is_not(None),
+                    FailureRecord.entity_type == FailureEntityTable.JOB.value,    # node or GPU failures survive
+                ),
             ),
         ),
-        "jobs": await _delete_rows(
-            session, delete(Job).where(Job.completed_at.is_not(None), Job.completed_at < cutoff)
-        ),
+        "jobs": await _delete_rows(session, delete(Job).where(Job.updated_at < cutoff)),
         "scheduler_events": await _delete_rows(
             session, delete(SchedulerEventRecord).where(SchedulerEventRecord.timestamp < cutoff)
         ),

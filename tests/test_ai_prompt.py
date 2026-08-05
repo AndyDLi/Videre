@@ -46,10 +46,14 @@ def make_context(*, logs: int = 3, series: int = 2, degraded: bool = False) -> F
 
 
 def test_the_entity_is_named_first() -> None:
+    """The prompt opens by naming the entity under analysis."""
+
     assert build_prompt(make_context(), maximum_characters=10_000).startswith("ENTITY: gpu gpu-1-2")
 
 
 def test_every_available_section_is_present() -> None:
+    """A full context renders all three source sections into the prompt."""
+
     prompt = build_prompt(make_context(), maximum_characters=10_000)
     assert "CLUSTER RECORDS:" in prompt
     assert "METRIC TRENDS" in prompt
@@ -57,6 +61,8 @@ def test_every_available_section_is_present() -> None:
 
 
 def test_unavailable_sources_are_named() -> None:
+    """A missing source is declared to the model rather than silently omitted."""
+
     prompt = build_prompt(make_context(degraded=True), maximum_characters=10_000)
     assert "UNAVAILABLE DATA SOURCES" in prompt
     assert "prometheus" in prompt
@@ -64,6 +70,8 @@ def test_unavailable_sources_are_named() -> None:
 
 
 def test_an_empty_context_still_renders() -> None:
+    """A context with no sources at all still produces a usable prompt naming the entity."""
+
     context = FailureContext(
         entity_type=FailureEntityTable.NODE, entity_id="node-0", generated_at=GENERATED_AT
     )
@@ -73,12 +81,16 @@ def test_an_empty_context_still_renders() -> None:
 
 
 def test_logs_are_dropped_before_metrics_when_oversized() -> None:
+    """The reduction ladder sheds log lines first, keeping metric trends within the budget."""
+
     prompt = build_prompt(make_context(logs=400), maximum_characters=1_200)
     assert len(prompt) <= 1_200
     assert "METRIC TRENDS" in prompt
 
 
 def test_an_unshrinkable_prompt_is_hard_truncated() -> None:
+    """A context that cannot shrink far enough is cut to the budget and marked as truncated."""
+
     context = make_context()
     context.postgres = PostgresContext.model_validate({})
     prompt = build_prompt(context, maximum_characters=60)
@@ -87,6 +99,8 @@ def test_an_unshrinkable_prompt_is_hard_truncated() -> None:
 
 
 def test_the_prompt_contains_only_context_data() -> None:
+    """No credential, connection string, or internal address leaks into the prompt."""
+
     prompt = build_prompt(make_context(), maximum_characters=10_000)
     for forbidden in ("password", "postgresql", "svc.cluster.local", "api_key", "AIza"):
         assert forbidden not in prompt

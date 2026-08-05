@@ -13,6 +13,8 @@ TEST_DATABASE_URL = os.environ.get("VIDERE_TEST_DATABASE_URL", "")
 
 @pytest_asyncio.fixture
 async def session() -> AsyncIterator[AsyncSession]:
+    """Yield a session against an empty database inside a transaction that is always rolled back."""
+
     if not TEST_DATABASE_URL:
         pytest.skip("set VIDERE_TEST_DATABASE_URL to run database integration tests")
 
@@ -21,9 +23,9 @@ async def session() -> AsyncIterator[AsyncSession]:
     transaction = await connection.begin()
     session_factory = async_sessionmaker(bind=connection, expire_on_commit=False)
     async with session_factory() as active_session:
-        for table in reversed(Base.metadata.sorted_tables):    # start from empty database
+        for table in reversed(Base.metadata.sorted_tables):
             await active_session.execute(delete(table))
         yield active_session
-    await transaction.rollback()    # tests persist nothing
+    await transaction.rollback()
     await connection.close()
     await engine.dispose()

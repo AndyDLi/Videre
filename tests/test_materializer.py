@@ -19,6 +19,8 @@ def sample_job() -> Job:
 
 
 def test_build_materialized_job_carries_simulated_labels_and_caps() -> None:
+    """A materialized Job is labelled back to its simulated node and bounded by TTL and deadline."""
+
     job = build_materialized_job(sample_job(), "node-2")
     assert job.metadata.name == "sim-job-1"
     assert job.metadata.labels[SIMULATED_NODE_LABEL] == "node-2"
@@ -49,6 +51,8 @@ class FailingMaterializer(FakeMaterializer):
 
 
 def test_job_lifecycle_materializes_on_run_and_signals_on_complete() -> None:
+    """Placing a job creates a Pod and records its name; completing it signals the outcome."""
+
     state = build_cluster_state()
     materializer = FakeMaterializer()
     lifecycle = JobLifecycle(
@@ -64,6 +68,8 @@ def test_job_lifecycle_materializes_on_run_and_signals_on_complete() -> None:
 
 
 def test_job_lifecycle_survives_a_failing_materializer() -> None:
+    """A Kubernetes API failure degrades the run to unmaterialized jobs rather than halting it."""
+
     state = build_cluster_state()
     lifecycle = JobLifecycle(
         arrival_probability=1.0, completion_probability=1.0,
@@ -77,6 +83,8 @@ def test_job_lifecycle_survives_a_failing_materializer() -> None:
 
 
 def test_job_ids_do_not_repeat_across_simulator_restarts() -> None:
+    """Each process mints a fresh run token, so a restart cannot collide with earlier job ids."""
+
     first_run_state, second_run_state = build_cluster_state(), build_cluster_state()
     for state in (first_run_state, second_run_state):
         lifecycle = JobLifecycle(arrival_probability=1.0, random_generator=Random(0))

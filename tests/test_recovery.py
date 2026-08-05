@@ -10,6 +10,8 @@ from videre.simulator.recovery import IDLE_TEMPERATURE_CELSIUS, HealthRecovery
 
 
 def test_recovery_returns_unhealthy_node_to_ready_and_emits_event() -> None:
+    """An unhealthy node returns to READY and announces it on the node-events topic."""
+
     state = build_cluster_state()
     state.nodes["node-0"].health_state = NodeHealthState.NOT_READY
     recovery = HealthRecovery(node_recovery_probability=1.0, random_generator=Random(0))
@@ -22,6 +24,8 @@ def test_recovery_returns_unhealthy_node_to_ready_and_emits_event() -> None:
 
 
 def test_recovery_returns_unhealthy_gpu_to_healthy_and_cools_it() -> None:
+    """A recovering GPU returns to HEALTHY and cools, but keeps its cumulative error counters."""
+
     state = build_cluster_state()
     gpu = state.gpus["gpu-0-0"]
     gpu.health_state = GpuHealthState.THROTTLING
@@ -38,6 +42,8 @@ def test_recovery_returns_unhealthy_gpu_to_healthy_and_cools_it() -> None:
 
 
 def test_recovery_leaves_healthy_entities_untouched() -> None:
+    """Entities already healthy produce no recovery events, even at full recovery probability."""
+
     state = build_cluster_state()
     recovery = HealthRecovery(
         node_recovery_probability=1.0, gpu_recovery_probability=1.0, random_generator=Random(0)
@@ -46,6 +52,8 @@ def test_recovery_leaves_healthy_entities_untouched() -> None:
 
 
 def test_zero_probability_never_recovers() -> None:
+    """A zero recovery probability leaves unhealthy entities in place indefinitely."""
+
     state = build_cluster_state()
     state.nodes["node-0"].health_state = NodeHealthState.NOT_READY
     recovery = HealthRecovery(
@@ -56,6 +64,8 @@ def test_zero_probability_never_recovers() -> None:
 
 
 def test_failures_and_recovery_reach_a_mixed_steady_state() -> None:
+    """Injecting failures against recovery yields a cluster that is neither all-healthy nor all-broken."""
+
     state = build_cluster_state()
     random_generator = Random(1)
     recovery = HealthRecovery(node_recovery_probability=0.02, random_generator=random_generator)

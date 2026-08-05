@@ -58,10 +58,9 @@ def make_snapshot(cluster_id: str = "cluster-a") -> ClusterHealthSnapshot:
     )
 
 
-# --- Store round trip ---
-
-
 async def test_snapshot_round_trips_through_the_store() -> None:
+    """A snapshot written to Redis reads back with its counts intact."""
+
     redis_client = FakeRedis()
     await write_snapshot(redis_client, make_snapshot(), ttl_seconds=20)
 
@@ -72,10 +71,14 @@ async def test_snapshot_round_trips_through_the_store() -> None:
 
 
 async def test_reading_a_missing_snapshot_returns_none() -> None:
+    """Reading a cluster that was never cached yields nothing rather than an empty snapshot."""
+
     assert await read_snapshot(FakeRedis(), "cluster-a") is None
 
 
 async def test_read_all_returns_every_cached_cluster() -> None:
+    """Reading all snapshots returns one entry per cached cluster."""
+
     redis_client = FakeRedis()
     await write_snapshot(redis_client, make_snapshot("cluster-a"), ttl_seconds=20)
     await write_snapshot(redis_client, make_snapshot("cluster-b"), ttl_seconds=20)
@@ -84,10 +87,9 @@ async def test_read_all_returns_every_cached_cluster() -> None:
     assert {snapshot.cluster_id for snapshot in cached} == {"cluster-a", "cluster-b"}
 
 
-# --- Snapshot content against real Postgres ---
-
-
 async def test_snapshot_counts_reflect_persisted_state(session) -> None:
+    """A snapshot built from Postgres reports the node and job counts actually stored."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=LifecycleEventType.NODE_STATE.value, payload=sample_node(NodeHealthState.READY)
     ))
@@ -104,6 +106,8 @@ async def test_snapshot_counts_reflect_persisted_state(session) -> None:
 
 
 async def test_snapshot_counts_only_unresolved_failures(session) -> None:
+    """The unresolved failure count rises with a new failure and falls once the entity recovers."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=EventType.NODE_KUBELET_DOWN.value,
         payload=sample_node(NodeHealthState.NOT_READY),
@@ -118,6 +122,8 @@ async def test_snapshot_counts_only_unresolved_failures(session) -> None:
 
 
 async def test_placeholder_clusters_without_nodes_are_excluded(session) -> None:
+    """The placeholder cluster created by an out-of-order event never reaches the cache."""
+
     await apply_event(session, Topic.GPU_METRICS, GpuMetricMessage(
         event_type=LifecycleEventType.GPU_METRIC.value, payload=sample_gpu()
     ))
@@ -129,10 +135,9 @@ async def test_placeholder_clusters_without_nodes_are_excluded(session) -> None:
     assert {snapshot.cluster_id for snapshot in snapshots} == {"cluster-a"}
 
 
-# --- Refresh loop ---
-
-
 async def test_refresh_writes_one_snapshot_per_cluster_with_a_ttl_beyond_the_interval(session) -> None:
+    """Each refresh writes one snapshot per cluster with a TTL outliving the interval, so a stall serves stale data."""
+
     await apply_event(session, Topic.NODE_EVENTS, NodeEventMessage(
         event_type=LifecycleEventType.NODE_STATE.value, payload=sample_node()
     ))

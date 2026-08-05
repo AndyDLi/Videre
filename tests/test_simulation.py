@@ -20,6 +20,8 @@ class FakePublisher:
 
 
 def test_tick_emits_gpu_telemetry() -> None:
+    """A tick past the telemetry interval publishes GPU metrics."""
+
     simulator = Simulator(random_generator=Random(0), telemetry_interval_seconds=0.0)
     publisher = FakePublisher()
     simulator.tick(publisher, now=0.0)
@@ -27,6 +29,8 @@ def test_tick_emits_gpu_telemetry() -> None:
 
 
 def test_tick_emits_job_lifecycle_events() -> None:
+    """A tick with a certain job arrival publishes onto the job-events topic."""
+
     simulator = Simulator(random_generator=Random(0), job_arrival_probability=1.0)
     publisher = FakePublisher()
     simulator.tick(publisher, now=0.0)
@@ -34,6 +38,8 @@ def test_tick_emits_job_lifecycle_events() -> None:
 
 
 def test_published_messages_are_serializable() -> None:
+    """Every published message serializes to JSON, so nothing can fail at the producer."""
+
     simulator = Simulator(random_generator=Random(0), telemetry_interval_seconds=0.0)
     publisher = FakePublisher()
     simulator.tick(publisher, now=0.0)
@@ -43,6 +49,8 @@ def test_published_messages_are_serializable() -> None:
 
 
 def test_run_flushes_on_stop() -> None:
+    """Stopping the run loop flushes the publisher so in-flight events are not dropped."""
+
     simulator = Simulator(random_generator=Random(0))
     publisher = FakePublisher()
     stop_event = Event()
@@ -52,8 +60,8 @@ def test_run_flushes_on_stop() -> None:
 
 
 def test_tick_emits_node_state_periodically() -> None:
-    # without this a consumer joining mid-stream never learns a healthy node's capacity, since
-    # nodes otherwise publish only on failure or recovery
+    """Every node republishes its full capacity each interval, so a consumer joining mid-stream learns it."""
+
     simulator = Simulator(random_generator=Random(0), node_count=4, telemetry_interval_seconds=0.0)
     publisher = FakePublisher()
     simulator.tick(publisher, now=0.0)
@@ -63,17 +71,19 @@ def test_tick_emits_node_state_periodically() -> None:
         if event.topic is Topic.NODE_EVENTS
         and event.message.event_type == LifecycleEventType.NODE_STATE.value
     ]
-    assert len(node_states) == 4                                  # every node, every interval
+    assert len(node_states) == 4
     payload = node_states[0].message.payload
-    assert payload.cpu_cores > 0 and payload.cluster_id           # carries real capacity, not a stub
+    assert payload.cpu_cores > 0 and payload.cluster_id
 
 
 def test_node_state_is_not_emitted_between_telemetry_intervals() -> None:
+    """Ticks inside the telemetry interval emit no node state, bounding the message rate."""
+
     simulator = Simulator(random_generator=Random(0), telemetry_interval_seconds=1000.0)
     publisher = FakePublisher()
-    simulator.tick(publisher, now=0.0)     # first tick always emits
+    simulator.tick(publisher, now=0.0)
     published_after_first = len(publisher.published)
-    simulator.tick(publisher, now=1.0)     # well inside the interval
+    simulator.tick(publisher, now=1.0)
 
     emitted = [
         event for event in publisher.published[published_after_first:]

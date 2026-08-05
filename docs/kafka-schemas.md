@@ -1,6 +1,6 @@
 # Kafka Message Schemas
 
-The four Kafka topics carry JSON messages. Avro, Protobuf, and a schema registry are unnecessary for this single, small-scale producer; JSON keeps messages easy to inspect and debug.
+The four Kafka topics carry JSON messages, keeping messages easy to inspect and debug.
 
 The Pydantic models in `src/videre/events.py` define the shared wire contract. Both the producer and consumer import these models, preventing schema drift.
 

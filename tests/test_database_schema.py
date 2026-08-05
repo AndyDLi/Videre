@@ -5,11 +5,15 @@ from videre.models import GpuHealthState, JobState, NodeHealthState, SchedulerEv
 
 
 def test_every_table_lives_in_the_videre_schema() -> None:
+    """Every table is namespaced under the dedicated videre schema rather than public."""
+
     assert Base.metadata.schema == SCHEMA_NAME
     assert all(table.schema == SCHEMA_NAME for table in Base.metadata.tables.values())
 
 
 def test_expected_tables_are_defined() -> None:
+    """The schema defines exactly the seven tables the pipeline persists to."""
+
     assert {table.name for table in Base.metadata.tables.values()} == {
         "clusters", "nodes", "gpus", "jobs",
         "job_node_assignments", "scheduler_events", "failure_records",
@@ -26,6 +30,8 @@ def test_expected_tables_are_defined() -> None:
     ],
 )
 def test_enum_columns_allow_exactly_their_python_enum(table_name, column_name, enum_type) -> None:
+    """Each enum column's CHECK constraint admits every Python enum member and nothing beyond them."""
+
     table = Base.metadata.tables[f"{SCHEMA_NAME}.{table_name}"]
     constraint = next(c for c in table.constraints if c.name == f"ck_{table_name}_{column_name}_valid")
     expression = str(constraint.sqltext)
@@ -34,8 +40,26 @@ def test_enum_columns_allow_exactly_their_python_enum(table_name, column_name, e
     assert expression.count("'") == 2 * len(list(enum_type))
 
 
+@pytest.mark.parametrize(
+    ("table_name", "column_name"),
+    [
+        ("jobs", "updated_at"),
+        ("failure_records", "detected_at"),
+        ("scheduler_events", "timestamp"),
+    ],
+)
+def test_every_column_retention_prunes_by_is_indexed(table_name, column_name) -> None:
+    """Each column the retention sweep filters on carries an index, so the hourly pass stays cheap."""
+
+    table = Base.metadata.tables[f"{SCHEMA_NAME}.{table_name}"]
+    indexed = {column.name for index in table.indexes for column in index.columns}
+    assert column_name in indexed
+
+
 @pytest.mark.parametrize("table_name", ["scheduler_events", "failure_records"])
 def test_append_only_tables_deduplicate_on_event_id(table_name) -> None:
+    """Append-only tables carry a unique event_id, so Kafka redelivery cannot duplicate a row."""
+
     table = Base.metadata.tables[f"{SCHEMA_NAME}.{table_name}"]
     assert any(
         set(constraint.columns.keys()) == {"event_id"} for constraint in table.constraints

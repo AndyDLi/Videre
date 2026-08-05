@@ -26,25 +26,27 @@ async def add_queueing_delay(session) -> None:
     await session.flush()
 
 
-# --- Missing entities ---
-
-
 async def test_missing_node_returns_none(session) -> None:
+    """An unknown node yields no context rather than an empty one."""
+
     assert await load_postgres_context(session, FailureEntityTable.NODE, "node-absent") is None
 
 
 async def test_missing_gpu_returns_none(session) -> None:
+    """An unknown GPU yields no context rather than an empty one."""
+
     assert await load_postgres_context(session, FailureEntityTable.GPU, "gpu-absent") is None
 
 
 async def test_missing_job_returns_none(session) -> None:
+    """An unknown job yields no context rather than an empty one."""
+
     assert await load_postgres_context(session, FailureEntityTable.JOB, "job-absent") is None
 
 
-# --- Entity state ---
-
-
 async def test_node_context_includes_its_gpus(session) -> None:
+    """A node's context carries the node itself and every GPU attached to it."""
+
     await seed(session)
     context = await load_postgres_context(session, FailureEntityTable.NODE, "node-0")
     assert context is not None
@@ -53,6 +55,8 @@ async def test_node_context_includes_its_gpus(session) -> None:
 
 
 async def test_gpu_context_includes_its_parent_node(session) -> None:
+    """A GPU's context reaches up to its parent node, since node health explains GPU symptoms."""
+
     await seed(session)
     context = await load_postgres_context(session, FailureEntityTable.GPU, "gpu-0-0")
     assert context is not None
@@ -61,6 +65,8 @@ async def test_gpu_context_includes_its_parent_node(session) -> None:
 
 
 async def test_job_context_includes_assigned_nodes(session) -> None:
+    """A job's context resolves the nodes it was placed on."""
+
     await seed(session)
     context = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")
     assert context is not None
@@ -68,10 +74,9 @@ async def test_job_context_includes_assigned_nodes(session) -> None:
     assert context.job.assigned_node_ids == ["node-0"]
 
 
-# --- Failure history ---
-
-
 async def test_node_context_carries_its_gpus_failures(session) -> None:
+    """A node's context includes failures raised against its GPUs, not only against itself."""
+
     await seed(session)
     failure_id = await fail_gpu(session)
     context = await load_postgres_context(session, FailureEntityTable.NODE, "node-0")
@@ -80,6 +85,8 @@ async def test_node_context_carries_its_gpus_failures(session) -> None:
 
 
 async def test_gpu_context_carries_its_own_failure(session) -> None:
+    """A GPU's context includes the unresolved failure raised against it."""
+
     await seed(session)
     failure_id = await fail_gpu(session)
     context = await load_postgres_context(session, FailureEntityTable.GPU, "gpu-0-0")
@@ -88,6 +95,8 @@ async def test_gpu_context_carries_its_own_failure(session) -> None:
 
 
 async def test_job_context_carries_its_nodes_failures(session) -> None:
+    """A job's context includes failures on the nodes it runs on, which is usually the real cause."""
+
     await seed(session)
     await apply_event(
         session,
@@ -98,7 +107,7 @@ async def test_job_context_carries_its_nodes_failures(session) -> None:
         )
     )
     await session.flush()
-    
+
     context = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")
     assert context is not None
     assert [failure.root_cause_tag for failure in context.unresolved_failures] == [
@@ -107,24 +116,25 @@ async def test_job_context_carries_its_nodes_failures(session) -> None:
 
 
 async def test_resolved_failures_land_in_the_history_section(session) -> None:
+    """Once an entity recovers, its failure moves from the unresolved list into recent history."""
+
     await seed(session)
     await fail_gpu(session)
-    
+
     await apply_event(session, Topic.GPU_METRICS, GpuMetricMessage(
         event_type=LifecycleEventType.GPU_RECOVERED.value, payload=sample_gpu()
     ))
     await session.flush()
-    
+
     context = await load_postgres_context(session, FailureEntityTable.GPU, "gpu-0-0")
     assert context is not None
     assert context.unresolved_failures == []
     assert len(context.recently_resolved_failures) == 1
 
 
-# --- Scheduler events ---
-
-
 async def test_node_context_includes_scheduler_events(session) -> None:
+    """A node's context carries the scheduler events recorded against it."""
+
     await seed(session)
     await add_queueing_delay(session)
     context = await load_postgres_context(session, FailureEntityTable.NODE, "node-0")
@@ -133,6 +143,8 @@ async def test_node_context_includes_scheduler_events(session) -> None:
 
 
 async def test_job_context_includes_scheduler_events(session) -> None:
+    """A job's context carries the scheduler events recorded against it."""
+
     await seed(session)
     await add_queueing_delay(session)
     context = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")

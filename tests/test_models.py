@@ -21,8 +21,6 @@ from videre.models import (
     SchedulerEventType,
 )
 
-# --- Valid sample entities ---
-
 
 def sample_cluster() -> Cluster:
     return Cluster(id="cluster-a", name="Cluster A", node_ids=["node-01", "node-02"])
@@ -72,9 +70,6 @@ def sample_queueing_delay_event() -> SchedulerEvent:
     )
 
 
-# --- Every entity survives a JSON round-trip ---
-
-
 @pytest.mark.parametrize(
     "model",
     [
@@ -88,21 +83,26 @@ def sample_queueing_delay_event() -> SchedulerEvent:
     ],
 )
 def test_json_roundtrip(model) -> None:
+    """Every entity model survives serialization to JSON and back unchanged."""
+
     assert type(model).model_validate_json(model.model_dump_json()) == model
 
 
-# --- Every entity has its expected defaults ---
-
-
 def test_cluster_defaults() -> None:
+    """A cluster defaults to an empty node list."""
+
     assert Cluster(id="cluster-a", name="Cluster A").node_ids == []
 
 
 def test_node_defaults() -> None:
+    """A node defaults to READY."""
+
     assert sample_node().health_state is NodeHealthState.READY
 
 
 def test_gpu_defaults() -> None:
+    """A GPU defaults to healthy, idle, and free of recorded errors."""
+
     gpu = GPU(id="gpu-node01-0", node_id="node-01", memory_total_mb=80)
     assert gpu.utilization_percentage == 0.0
     assert gpu.temperature_celsius == 0.0
@@ -114,6 +114,8 @@ def test_gpu_defaults() -> None:
 
 
 def test_job_defaults() -> None:
+    """A job defaults to PENDING with no placement, pod, or finish time."""
+
     job = sample_job()
     assert job.assigned_node_ids == []
     assert job.state is JobState.PENDING
@@ -126,10 +128,9 @@ def test_job_defaults() -> None:
 
 
 def test_scheduler_event_defaults() -> None:
+    """A scheduler event defaults to a timezone-aware timestamp."""
+
     assert sample_placement_event().delay_seconds is None
-
-
-# --- Every enum field serializes to a plain string ---
 
 
 @pytest.mark.parametrize(
@@ -142,10 +143,14 @@ def test_scheduler_event_defaults() -> None:
     ],
 )
 def test_enum_serializes_as_plain_string(model, field, expected) -> None:
+    """Every enum field serializes to a plain string for the Kafka wire format."""
+
     assert json.loads(model.model_dump_json())[field] == expected
 
 
 def test_timestamps_are_tz_aware_iso8601() -> None:
+    """Timestamps serialize as timezone-aware ISO-8601 values."""
+
     for iso in (
         json.loads(sample_job().model_dump_json())["created_at"],
         json.loads(sample_placement_event().model_dump_json())["timestamp"],
@@ -153,10 +158,9 @@ def test_timestamps_are_tz_aware_iso8601() -> None:
         assert datetime.fromisoformat(iso).tzinfo is not None
 
 
-# --- Every entity rejects extra and invalid fields ---
-
-
 def test_cluster_rejects_extra_fields() -> None:
+    """An unrecognized field is rejected rather than silently ignored."""
+
     with pytest.raises(ValidationError):
         Cluster(id="cluster-a", name="Cluster A", bogus="x")
 
@@ -170,6 +174,8 @@ def test_cluster_rejects_extra_fields() -> None:
     ],
 )
 def test_node_rejects_invalid_capacity(override) -> None:
+    """A node rejects non-positive CPU or memory and a negative GPU count."""
+
     base = {"id": "node-01", "cluster_id": "cluster-a", "cpu_cores": 8, "memory_gb": 8, "gpu_count": 0}
     with pytest.raises(ValidationError):
         Node(**{**base, **override})
@@ -186,6 +192,8 @@ def test_node_rejects_invalid_capacity(override) -> None:
     ],
 )
 def test_gpu_rejects_invalid_values(override) -> None:
+    """A GPU rejects out-of-range utilization, temperature, and memory values."""
+
     base = {"id": "gpu-node01-0", "node_id": "node-01", "memory_total_mb": 80}
     with pytest.raises(ValidationError):
         GPU(**{**base, **override})
@@ -200,12 +208,16 @@ def test_gpu_rejects_invalid_values(override) -> None:
     ],
 )
 def test_resource_request_rejects_invalid_values(override) -> None:
+    """A resource request rejects non-positive CPU or memory and a negative GPU count."""
+
     base = {"cpu_cores": 8, "memory_gb": 8, "gpu_count": 0}
     with pytest.raises(ValidationError):
         ResourceRequest(**{**base, **override})
 
 
 def test_job_requires_resources() -> None:
+    """A job cannot be constructed without a resource request."""
+
     with pytest.raises(ValidationError):
         Job(id="job-1", cluster_id="cluster-a")
 
@@ -219,6 +231,8 @@ def test_job_requires_resources() -> None:
     ],
 )
 def test_scheduler_event_delay_rules(override) -> None:
+    """A delay is required on queueing-delay events and forbidden on every other type."""
+
     base = {"id": "event-1", "type": SchedulerEventType.PLACEMENT, "reason": "scheduler decision"}
     with pytest.raises(ValidationError):
         SchedulerEvent(**{**base, **override})
