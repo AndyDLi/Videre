@@ -24,9 +24,11 @@
 
 ---
 
-<div align="center">
-  <video src="./Videre.mp4" width="900" controls="controls" muted="muted"></video>
-</div>
+
+
+https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
+
+
 
 ---
 
