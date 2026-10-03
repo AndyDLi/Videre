@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Any
 
-from aiokafka import AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer, TopicPartition
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -31,7 +31,9 @@ async def run_consumer(session_factory: async_sessionmaker[AsyncSession], settin
             bootstrap_servers=settings.kafka_bootstrap_servers,
             group_id=CONSUMER_GROUP,
             enable_auto_commit=False,        # commit only once the rows are written
-            auto_offset_reset="latest",      # start at the tip if there is no bookmark
+            
+            # recover retained history if no valid bookmark; existing event_id constraint makes replay safe
+            auto_offset_reset="earliest",
         )
         try:
             await consumer.start()
@@ -58,9 +60,9 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
     except (ValueError, ValidationError) as error:
         logger.warning(
             "skipping malformed message",
-            extra={"topic": record.topic, "offset": record.offset, "error": str(error)},
+            extra={"topic": record.topic, "partition": record.partition, "offset": record.offset, "error": str(error)},
         )
-        await consumer.commit()
+        await consumer.commit({TopicPartition(record.topic, record.partition): record.offset + 1})
         return
     
     try:
@@ -69,9 +71,12 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
     except Exception as error:
         logger.error(
             "persistence failed",
-            extra={"topic": record.topic, "event_type": message.event_type, "error": str(error)},
+            extra={
+                "topic": record.topic, "partition": record.partition, "offset": record.offset,
+                "event_type": message.event_type, "error": str(error),
+            },
         )
-        return
+        raise
     
     record_event(topic, message)    # write to Prometheus registry
-    await consumer.commit()
+    await consumer.commit({TopicPartition(record.topic, record.partition): record.offset + 1})

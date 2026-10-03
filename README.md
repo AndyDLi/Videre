@@ -194,7 +194,8 @@ flowchart LR
 ```
 
 - The simulator publishes to four JSON Kafka topics and maps every simulated job to a real Kubernetes Pod. The backend consumes all four topics, persists current state and failure records to Postgres, and updates Prometheus gauges strictly after the database transaction commits. Concurrently, Alloy streams raw container logs directly to Loki. A background loop aggregates cluster health into a Redis snapshot every seconds seconds and streams it to WebSocket clients.
-- Topics are partitioned by a stable routing key, so all events for a specific node or job land in the same partition, guaranteeing they process in a strict sequence. Deduplication is enforced in Postgres, where a single constraint on the envelope's `event_id` ensures that replaying a topic inserts nothing twice, and Kafka offsets commit only after the database transaction succeeds.
+- Topics use a stable routing key to preserve each entity's event order within its topic partition. The backend commits only the handled record's partition and next offset after successful persistence or a logged malformed-message rejection. Persistence failures reconnect and replay retained, uncommitted records. Postgres deduplicates append-only records with stable envelope `event_id` values and protects entity and assignment rows with primary/composite keys.
+- With a valid committed offset, failures resume there. A missing or invalid bookmark uses `earliest`, trading extra processing and possible repeated metric increments for recovery from retained history (configured for three days).
 - The AI assistant queries all three data stores concurrently. Postgres serves the structured state, Prometheus serves the metrics, and Loki serves the logs, allowing the model to align failure records, metric movement, and container log lines from the same window, tracing cascading symptoms back to their root causes.
 
 ## 🚀 Running It Yourself
