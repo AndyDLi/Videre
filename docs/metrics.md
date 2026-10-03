@@ -7,6 +7,8 @@ Values come from two writers inside the backend process:
 - The Kafka consumer, strictly after each event's Postgres transaction commits.
 - The cache-refresh loop for cluster-wide aggregations.
 
+Kafka offset commits follow metric updates. If persistence succeeds but the offset commit fails, reconnecting can replay that event and increment its counters again even when Postgres suppresses duplicate domain rows. Counters therefore reflect processing, including replays, rather than exactly-once event counts. Valid bookmarks limit replay to uncommitted records; a missing or invalid bookmark uses `earliest` and may repeat increments across the retained three-day history.
+
 ## Domain Metrics
 
 | Metric | Type | Labels | Meaning |
