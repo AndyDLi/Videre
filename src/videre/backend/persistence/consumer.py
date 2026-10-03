@@ -16,7 +16,7 @@ from videre.events import TOPIC_MESSAGE_TYPES, Topic
 
 from ..metrics import record_event
 from ..settings import Settings
-from .event_mapping import apply_event
+from .event_mapping import EventDisposition, apply_event
 
 logger = logging.getLogger("videre.backend.consumer")
 
@@ -67,7 +67,7 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
     
     try:
         async with session_factory() as session, session.begin():
-            await apply_event(session, topic, message)    # write to Postgres
+            disposition = await apply_event(session, topic, message)    # write or fence in Postgres
     except Exception as error:
         logger.error(
             "persistence failed",
@@ -78,5 +78,17 @@ async def handle_record(session_factory: async_sessionmaker[AsyncSession], consu
         )
         raise
     
-    record_event(topic, message)    # write to Prometheus registry
+    if disposition is EventDisposition.APPLIED:
+        record_event(topic, message)    # write to Prometheus registry
+    else:
+        logger.warning(
+            "skipping simulation event",
+            extra={
+                "topic": record.topic, "partition": record.partition, "offset": record.offset,
+                "event_id": message.event_id, "reason": disposition.value,
+                "simulation_run": (
+                    message.simulation_run.model_dump(mode="json") if message.simulation_run is not None else None
+                ),
+            },
+        )
     await consumer.commit({TopicPartition(record.topic, record.partition): record.offset + 1})

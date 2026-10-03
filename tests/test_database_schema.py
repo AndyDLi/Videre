@@ -64,3 +64,32 @@ def test_append_only_tables_deduplicate_on_event_id(table_name) -> None:
     assert any(
         set(constraint.columns.keys()) == {"event_id"} for constraint in table.constraints
     ), "reprocessing a Kafka message must not create a duplicate row"
+
+def test_cluster_has_a_paired_nullable_run_boundary():
+    table = Base.metadata.tables[f"{SCHEMA_NAME}.clusters"]
+    assert {"simulation_run_id", "simulation_run_started_at"} <= set(table.columns.keys())
+    assert table.c.simulation_run_id.nullable and table.c.simulation_run_started_at.nullable
+    assert any(c.name == "ck_clusters_simulation_run_paired" for c in table.constraints)
+
+
+@pytest.mark.parametrize("has_id,has_start", [(False, False), (True, True), (True, False), (False, True)])
+async def test_database_enforces_paired_run_boundary(session, has_id, has_start):
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    values = {
+        "run_id": "00000000-0000-4000-8000-000000000001" if has_id else None,
+        "started_at": datetime.now(UTC) if has_start else None,
+    }
+    statement = text(
+        "INSERT INTO videre.clusters (id, name, simulation_run_id, simulation_run_started_at) "
+        "VALUES ('constraint-test', 'constraint-test', :run_id, :started_at)"
+    )
+    if has_id != has_start:
+        with pytest.raises(IntegrityError):
+            async with session.begin_nested():
+                await session.execute(statement, values)
+    else:
+        await session.execute(statement, values)

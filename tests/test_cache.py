@@ -149,3 +149,32 @@ async def test_refresh_writes_one_snapshot_per_cluster_with_a_ttl_beyond_the_int
     ttl = redis_client.expiries[cache_key("cluster-a")]
     assert ttl == int(5.0 * TTL_MULTIPLIER)
     assert ttl > 5
+
+async def test_reset_snapshot_and_cache_preserve_history_and_new_incidents(session):
+    from prometheus_client import REGISTRY
+
+    from test_event_mapping import persisted_rows, run_message, seed_previous_run, simulation_run
+    from videre.backend.persistence.event_mapping import reconcile_run
+
+    await seed_previous_run(session)
+    await apply_event(session, Topic.JOB_EVENTS, run_message(Topic.JOB_EVENTS, 2))
+    cluster = await session.get(Cluster, "cluster-a")
+    reset = await build_snapshot(session, cluster)
+    assert reset.nodes_by_health_state == {"READY": 1}
+    assert reset.gpus_by_health_state == {"HEALTHY": 1}
+    assert reset.jobs_by_lifecycle_state == {"FAILED": 3, "COMPLETED": 1, "RUNNING": 1}
+    assert reset.unresolved_failure_count == 0
+    assert len((await persisted_rows(session))["failure_records"]) == 4
+    await apply_event(session, Topic.NODE_EVENTS, run_message(
+        Topic.NODE_EVENTS, 2, payload=sample_node(NodeHealthState.NOT_READY), event_type="node.kubelet_down",
+    ))
+    before = await persisted_rows(session)
+    await reconcile_run(session, simulation_run(2))
+    assert await persisted_rows(session) == before
+    redis_client = FakeRedis()
+    await refresh_once(SingleSessionFactory(session), redis_client, interval_seconds=5)
+    cached = await read_snapshot(redis_client, "cluster-a")
+    assert cached.nodes_by_health_state == {"NOT_READY": 1}
+    assert cached.unresolved_failure_count == 1
+    assert REGISTRY.get_sample_value("videre_unresolved_failures") == 1
+    assert REGISTRY.get_sample_value("videre_jobs_by_state", {"cluster_id": "cluster-a", "state": "PENDING"}) == 0

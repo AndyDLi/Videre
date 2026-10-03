@@ -8,13 +8,14 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from random import Random
 from typing import Protocol
 from uuid import uuid4
 
 from videre.event_types import EventType, LifecycleEventType
-from videre.events import Topic
+from videre.events import RUN_SCHEMA_VERSION, TOPIC_MESSAGE_TYPES, SimulationRun, Topic
 from videre.models import JobState
 
 from .cluster_state import build_cluster_state
@@ -50,6 +51,9 @@ class Simulator:
     ) -> None:
         self._random_generator = random_generator if random_generator is not None else Random()
         self._state = build_cluster_state(node_count=node_count, gpus_per_node=gpus_per_node)
+        self._simulation_run = SimulationRun(
+            run_id=uuid4(), cluster_id=next(iter(self._state.clusters)), started_at=datetime.now(UTC),
+        )
         self._engine = CorrelationEngine(
             baseline_failure_probability=baseline_failure_probability,
             random_generator=self._random_generator,
@@ -91,7 +95,10 @@ class Simulator:
             self._reflect_failure(scheduled_event, generated_event)
         
         for event in events:
-            publisher.publish(event)
+            data = event.message.model_dump()
+            data.update(schema_version=RUN_SCHEMA_VERSION, simulation_run=self._simulation_run)
+            message = TOPIC_MESSAGE_TYPES[event.topic].model_validate(data)
+            publisher.publish(GeneratedEvent(topic=event.topic, key=event.key, message=message))
     
     def run(self, publisher: Publisher, *, stop_event: threading.Event, tick_interval_seconds: float = 1.0) -> None:
         start = time.monotonic()

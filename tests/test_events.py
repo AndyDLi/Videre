@@ -142,3 +142,69 @@ def test_topic_values() -> None:
         "job-events",
         "scheduler-events",
     }
+
+
+def run_data():
+    return {
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "cluster_id": "cluster-a",
+        "started_at": "2026-10-03T10:00:00Z",
+    }
+
+
+@pytest.mark.parametrize("message", sample_messages())
+def test_run_envelope_roundtrips_on_every_topic(message):
+    data = message.model_dump()
+    data.update(schema_version=2, simulation_run=run_data())
+    parsed = type(message).model_validate(data)
+    assert parsed.schema_version == 2
+    assert parsed.simulation_run.cluster_id == "cluster-a"
+    assert type(message).model_validate_json(parsed.model_dump_json()) == parsed
+
+
+@pytest.mark.parametrize("version,run", [(2, None), (3, None), (0, None), (1, run_data())])
+def test_envelope_rejects_incompatible_version_and_run(version, run):
+    with pytest.raises(ValidationError):
+        NodeEventMessage.model_validate({
+            "event_type": "node.state", "payload": sample_node(),
+            "schema_version": version, "simulation_run": run,
+        })
+
+
+@pytest.mark.parametrize("field,value", [
+    ("run_id", "invalid"), ("started_at", "2026-10-03T10:00:00"),
+    ("cluster_id", ""), ("cluster_id", "b" * 65),
+])
+def test_run_descriptor_rejects_invalid_identity_or_naive_time(field, value):
+    run = run_data() | {field: value}
+    with pytest.raises(ValidationError):
+        NodeEventMessage.model_validate({
+            "event_type": "node.state", "payload": sample_node(),
+            "schema_version": 2, "simulation_run": run,
+        })
+
+
+@pytest.mark.parametrize("payload,message_type", [(sample_node(), NodeEventMessage), (sample_job(), JobEventMessage)])
+def test_run_cluster_must_match_scoped_payload(payload, message_type):
+    with pytest.raises(ValidationError):
+        message_type.model_validate({
+            "event_type": "state", "payload": payload,
+            "schema_version": 2, "simulation_run": run_data() | {"cluster_id": "cluster-b"},
+        })
+
+
+def test_run_time_is_normalized_to_utc_and_descriptor_is_immutable():
+    message = NodeEventMessage.model_validate({
+        "event_type": "node.state", "payload": sample_node(), "schema_version": 2,
+        "simulation_run": run_data() | {"started_at": "2026-10-03T12:00:00+02:00"},
+    })
+    assert message.simulation_run.started_at.utcoffset().total_seconds() == 0
+    with pytest.raises(ValidationError):
+        message.simulation_run.cluster_id = "cluster-b"
+
+
+def test_legacy_wire_envelope_without_run_still_parses():
+    original = NodeEventMessage(event_type="node.state", payload=sample_node())
+    data = original.model_dump()
+    data.pop("simulation_run", None)
+    assert NodeEventMessage.model_validate(data).schema_version == 1

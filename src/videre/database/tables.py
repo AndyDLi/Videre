@@ -63,9 +63,16 @@ def enum_check(column_name: str, enum_type: type[StrEnum]) -> CheckConstraint:
 
 class Cluster(Base):
     __tablename__ = "clusters"
+    __table_args__ = (
+        CheckConstraint(
+            "(simulation_run_id IS NULL) = (simulation_run_started_at IS NULL)", name="simulation_run_paired",
+        ),
+    )
     
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    simulation_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    simulation_run_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
