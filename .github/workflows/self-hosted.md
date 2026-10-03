@@ -48,5 +48,5 @@ Once verification succeeds on `main`, the `build-and-push` job compiles and publ
 ### 3. Cluster Deployment & Security Auditing
 
 - Before deploying, an automated security check executes against the cluster using the `videre-deployer` identity and explicitly attempts unauthorized actions, such as reading Secrets, deleting Deployments, spawning Pods, and accessing resources outside the `videre` namespace, asserting that Kubernetes denies every one.
-- Issues `kubectl set image` commands to update the simulator, backend, and frontend deployments to the newly minted container tags.
+- Updates the backend image and waits for readiness before updating the simulator, then the frontend.
 - Monitors the clusters to ensure all new pods become healthy and ready before marking the pipeline as successful, and reports a post-deploy final state of the namespace for auditing.

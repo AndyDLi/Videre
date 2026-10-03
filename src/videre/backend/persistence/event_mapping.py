@@ -5,10 +5,11 @@ Map one Kafka event message onto its Postgres rows.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +30,10 @@ from videre.events import (
     JobEventMessage,
     NodeEventMessage,
     SchedulerEventMessage,
+    SimulationRun,
     Topic,
 )
-from videre.models import JobState, NodeHealthState
+from videre.models import GpuHealthState, JobState, NodeHealthState
 
 PLACEHOLDER_CLUSTER_ID = "unknown"
 
@@ -161,7 +163,8 @@ async def _apply_node_event(session: AsyncSession, message: NodeEventMessage) ->
 
 async def _apply_gpu_event(session: AsyncSession, message: GpuMetricMessage) -> None:
     gpu = message.payload
-    await _ensure_node(session, gpu.node_id, PLACEHOLDER_CLUSTER_ID)
+    cluster_id = message.simulation_run.cluster_id if message.simulation_run is not None else PLACEHOLDER_CLUSTER_ID
+    await _ensure_node(session, gpu.node_id, cluster_id)
     
     values = {
         "id": gpu.id,
@@ -231,10 +234,11 @@ async def _apply_job_event(session: AsyncSession, message: JobEventMessage) -> N
 
 async def _apply_scheduler_event(session: AsyncSession, message: SchedulerEventMessage) -> None:
     scheduler_event = message.payload
+    cluster_id = message.simulation_run.cluster_id if message.simulation_run is not None else PLACEHOLDER_CLUSTER_ID
     if scheduler_event.node_id is not None:
-        await _ensure_node(session, scheduler_event.node_id, PLACEHOLDER_CLUSTER_ID)
+        await _ensure_node(session, scheduler_event.node_id, cluster_id)
     if scheduler_event.job_id is not None:
-        await _ensure_job(session, scheduler_event.job_id, PLACEHOLDER_CLUSTER_ID)
+        await _ensure_job(session, scheduler_event.job_id, cluster_id)
     
     statement = insert(SchedulerEventRecord).values(
         id=scheduler_event.id,
@@ -260,5 +264,84 @@ _HANDLERS: dict[Topic, Callable[[AsyncSession, Any], Awaitable[None]]] = {
 }
 
 
-async def apply_event(session: AsyncSession, topic: Topic, message: Any) -> None:
+class EventDisposition(StrEnum):
+    APPLIED = "applied"
+    STALE_RUN = "stale_run"
+    LEGACY_AFTER_BOUNDARY = "legacy_after_boundary"
+    CONFLICTING_RUN = "conflicting_run"
+
+
+async def reconcile_run(session: AsyncSession, run: SimulationRun) -> EventDisposition:
+    """Fence all topics and reconcile once, in the event's persistence transaction."""
+    await _ensure_cluster(session, run.cluster_id)
+    cluster = (await session.scalars(
+        select(Cluster).where(Cluster.id == run.cluster_id).with_for_update()
+        .execution_options(populate_existing=True)
+    )).one()
+    if cluster.simulation_run_id is not None:
+        if cluster.simulation_run_id == str(run.run_id):
+            return (
+                EventDisposition.APPLIED if cluster.simulation_run_started_at == run.started_at
+                else EventDisposition.CONFLICTING_RUN
+            )
+        if cluster.simulation_run_started_at == run.started_at:
+            return EventDisposition.CONFLICTING_RUN
+        if cluster.simulation_run_started_at is not None and run.started_at < cluster.simulation_run_started_at:
+            return EventDisposition.STALE_RUN
+    else:
+        for table in (Node, Job):
+            await session.execute(
+                update(table).where(table.cluster_id == PLACEHOLDER_CLUSTER_ID)
+                .values(cluster_id=run.cluster_id).execution_options(synchronize_session=False)
+            )
+
+    node_ids = select(Node.id).where(Node.cluster_id == run.cluster_id)
+    gpu_ids = select(Gpu.id).where(Gpu.node_id.in_(node_ids))
+    job_ids = select(Job.id).where(Job.cluster_id == run.cluster_id)
+    await session.execute(
+        update(FailureRecord).where(
+            FailureRecord.resolved_at.is_(None),
+            or_(
+                and_(FailureRecord.entity_type == FailureEntityTable.NODE.value, FailureRecord.entity_id.in_(node_ids)),
+                and_(FailureRecord.entity_type == FailureEntityTable.GPU.value, FailureRecord.entity_id.in_(gpu_ids)),
+                and_(FailureRecord.entity_type == FailureEntityTable.JOB.value, FailureRecord.entity_id.in_(job_ids)),
+            ),
+        ).values(resolved_at=run.started_at).execution_options(synchronize_session=False)
+    )
+    await session.execute(
+        update(Job).where(Job.cluster_id == run.cluster_id, Job.lifecycle_state.in_(
+            [JobState.PENDING.value, JobState.RUNNING.value],
+        )).values(
+            lifecycle_state=JobState.FAILED.value, failure_reason="simulation reset",
+            completed_at=run.started_at, updated_at=run.started_at,
+        ).execution_options(synchronize_session=False)
+    )
+    await session.execute(
+        update(Node).where(Node.cluster_id == run.cluster_id)
+        .values(health_state=NodeHealthState.READY.value, updated_at=run.started_at)
+        .execution_options(synchronize_session=False)
+    )
+    await session.execute(
+        update(Gpu).where(Gpu.node_id.in_(node_ids))
+        .values(health_state=GpuHealthState.HEALTHY.value, last_updated_at=run.started_at)
+        .execution_options(synchronize_session=False)
+    )
+    cluster.simulation_run_id = str(run.run_id)
+    cluster.simulation_run_started_at = run.started_at
+    await session.flush()
+    return EventDisposition.APPLIED
+
+
+async def apply_event(session: AsyncSession, topic: Topic, message: Any) -> EventDisposition:
+    if message.simulation_run is None:
+        has_boundary = await session.scalar(
+            select(Cluster.id).where(Cluster.simulation_run_id.is_not(None)).limit(1)
+        )
+        if has_boundary is not None:
+            return EventDisposition.LEGACY_AFTER_BOUNDARY
+    else:
+        disposition = await reconcile_run(session, message.simulation_run)
+        if disposition is not EventDisposition.APPLIED:
+            return disposition
     await _HANDLERS[topic](session, message)
+    return EventDisposition.APPLIED

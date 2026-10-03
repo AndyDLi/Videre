@@ -9,6 +9,8 @@ Values come from two writers inside the backend process:
 
 Kafka offset commits follow metric updates. If persistence succeeds but the offset commit fails, reconnecting can replay that event and increment its counters again even when Postgres suppresses duplicate domain rows. Counters therefore reflect processing, including replays, rather than exactly-once event counts. Valid bookmarks limit replay to uncommitted records; a missing or invalid bookmark uses `earliest` and may repeat increments across the retained three-day history.
 
+Events rejected as stale, legacy-after-boundary, or conflicting runs update no metrics. Run resets appear in job/incident aggregates after the next cache refresh; node/GPU gauges and measured telemetry follow normal per-entity snapshots.
+
 ## Domain Metrics
 
 | Metric | Type | Labels | Meaning |

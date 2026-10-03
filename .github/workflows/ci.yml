@@ -196,16 +196,23 @@ jobs:
           test "$(kubectl auth can-i get pods --namespace kube-system || true)" = "no"
           echo "cluster access is correctly limited to the videre namespace"
 
-      - name: Point each Deployment at the new build
+      # The consumer must understand new simulator envelopes before they are published.
+      - name: Deploy the backend and wait until ready
         run: |
-          kubectl set image deployment/simulator simulator=${{ env.IMAGE_PREFIX }}-simulator:${{ env.PYTHON_TAG }}
+          set -euo pipefail
           kubectl set image deployment/backend backend=${{ env.IMAGE_PREFIX }}-backend:${{ env.PYTHON_TAG }}
-          kubectl set image deployment/frontend frontend=${{ env.IMAGE_PREFIX }}-frontend:${{ env.FRONTEND_TAG }}
-
-      - name: Wait for each rollout to become ready
-        run: |
-          kubectl rollout status deployment/simulator --timeout=180s
           kubectl rollout status deployment/backend --timeout=180s
+
+      - name: Deploy the simulator and wait until ready
+        run: |
+          set -euo pipefail
+          kubectl set image deployment/simulator simulator=${{ env.IMAGE_PREFIX }}-simulator:${{ env.PYTHON_TAG }}
+          kubectl rollout status deployment/simulator --timeout=180s
+
+      - name: Deploy the frontend and wait until ready
+        run: |
+          set -euo pipefail
+          kubectl set image deployment/frontend frontend=${{ env.IMAGE_PREFIX }}-frontend:${{ env.FRONTEND_TAG }}
           kubectl rollout status deployment/frontend --timeout=180s
 
       - name: Report what is running

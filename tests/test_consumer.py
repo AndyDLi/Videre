@@ -11,13 +11,21 @@ from prometheus_client import REGISTRY
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from test_event_mapping import sample_job, sample_node
+from test_event_mapping import (
+    persisted_rows,
+    run_message,
+    sample_gpu,
+    sample_job,
+    sample_node,
+    seed_previous_run,
+)
 from videre.backend.persistence import consumer as consumer_module
+from videre.backend.persistence.event_mapping import EventDisposition, apply_event
 from videre.backend.settings import Settings
 from videre.database.tables import FailureRecord, Job, JobNodeAssignment, Node, SchedulerEventRecord
 from videre.event_types import EventType
 from videre.events import JobEventMessage, NodeEventMessage, SchedulerEventMessage, Topic
-from videre.models import JobState, NodeHealthState, SchedulerEvent, SchedulerEventType
+from videre.models import GpuHealthState, JobState, NodeHealthState, SchedulerEvent, SchedulerEventType
 
 HANDLED = TopicPartition("node-events", 0)
 OTHER_PARTITION = TopicPartition("node-events", 1)
@@ -175,7 +183,11 @@ async def test_persistence_failure_escapes_without_metrics_or_offset_commit(monk
 async def test_success_commits_record_offset_only_after_transaction_and_metrics(monkeypatch):
     trace = []
     consumer = RecordingConsumer(trace)
-    monkeypatch.setattr(consumer_module, "apply_event", AsyncMock(side_effect=lambda *_: trace.append("apply")))
+    async def traced_apply(*args):
+        trace.append("apply")
+        return EventDisposition.APPLIED
+
+    monkeypatch.setattr(consumer_module, "apply_event", traced_apply)
     monkeypatch.setattr(consumer_module, "record_event", lambda *_: trace.append("metrics"))
 
     await consumer_module.handle_record(memory_sessions(trace), consumer, kafka_record())
@@ -195,7 +207,7 @@ async def test_malformed_rejection_logs_position_before_committing_only_its_part
 ):
     consumer = RecordingConsumer()
     record = SimpleNamespace(topic=topic, partition=0, offset=10, value=value)
-    apply = AsyncMock()
+    apply = AsyncMock(return_value=EventDisposition.APPLIED)
     metrics = Mock()
     monkeypatch.setattr(consumer_module, "apply_event", apply)
     monkeypatch.setattr(consumer_module, "record_event", metrics)
@@ -231,6 +243,7 @@ async def test_database_failure_reconnects_and_recovers_retained_record(monkeypa
         if attempts == 1:
             raise RuntimeError("transient database failure")
         broker.persisted.append(message.event_id)
+        return EventDisposition.APPLIED
 
     monkeypatch.setattr(consumer_module, "AIOKafkaConsumer", broker.consumer)
     monkeypatch.setattr(consumer_module, "apply_event", persist)
@@ -254,7 +267,7 @@ async def test_offset_commit_failure_reconnects_and_replays_same_record(monkeypa
     if malformed:
         record.value = b"not json"
     broker = RetainedBroker([record], commit_failures=1)
-    apply = AsyncMock()
+    apply = AsyncMock(return_value=EventDisposition.APPLIED)
     monkeypatch.setattr(consumer_module, "AIOKafkaConsumer", broker.consumer)
     monkeypatch.setattr(consumer_module, "apply_event", apply)
     monkeypatch.setattr(consumer_module, "record_event", Mock())
@@ -372,10 +385,11 @@ async def test_database_transaction_rolls_back_then_reconnect_persists_event(ses
     async def fail_after_writes(active_session, topic, message):
         nonlocal attempts
         attempts += 1
-        await real_apply(active_session, topic, message)
+        disposition = await real_apply(active_session, topic, message)
         if attempts == 1:
             # A real PostgreSQL error after writes must roll back the entire transaction.
             await active_session.execute(text("SELECT 1 / 0"))
+        return disposition
 
     async def check_rollback_before_retry(delay):
         assert (await session.execute(select(func.count()).select_from(Node))).scalar_one() == 0
@@ -394,3 +408,92 @@ async def test_database_transaction_rolls_back_then_reconnect_persists_event(ses
     assert broker.bookmarks == {HANDLED: 11}
     assert (await session.execute(select(func.count()).select_from(Node))).scalar_one() == 1
     assert (await session.execute(select(func.count()).select_from(FailureRecord))).scalar_one() == 1
+
+@pytest.mark.parametrize("disposition", [
+    "stale_run", "legacy_after_boundary", "conflicting_run",
+])
+@pytest.mark.parametrize("commit_fails", [False, True])
+async def test_run_rejection_logs_before_partition_commit_without_metrics(
+    monkeypatch, caplog, disposition, commit_fails,
+):
+    trace = []
+    consumer = RecordingConsumer(trace, commit_failures=int(commit_fails))
+    metrics = Mock()
+    monkeypatch.setattr(consumer_module, "apply_event", AsyncMock(return_value=EventDisposition(disposition)))
+    monkeypatch.setattr(consumer_module, "record_event", metrics)
+    message = run_message(Topic.NODE_EVENTS, 1)
+    if disposition == "legacy_after_boundary":
+        message = message.model_copy(update={"schema_version": 1, "simulation_run": None})
+    record = kafka_record(message)
+    def assert_logged_before_commit():
+        logs = [item for item in caplog.records if item.message == "skipping simulation event"]
+        assert len(logs) == 1
+        log = logs[0]
+        assert (log.topic, log.partition, log.offset, log.event_id) == (
+            "node-events", 0, 10, message.event_id,
+        )
+        assert log.reason == disposition
+        assert log.simulation_run == (
+            message.simulation_run.model_dump(mode="json") if message.simulation_run is not None else None
+        )
+        assert trace == ["begin", "db_commit"]
+    consumer.before_commit = assert_logged_before_commit
+    if commit_fails:
+        with pytest.raises(CommitFailedError):
+            await consumer_module.handle_record(memory_sessions(trace), consumer, record)
+    else:
+        await consumer_module.handle_record(memory_sessions(trace), consumer, record)
+    metrics.assert_not_called()
+    assert consumer.commit_requests == [{HANDLED: 11}]
+    assert consumer.bookmarks[OTHER_PARTITION] == 12 and consumer.bookmarks[OTHER_TOPIC] == 30
+    assert UNBOOKMARKED not in consumer.bookmarks
+
+
+async def test_boundary_commit_failure_replay_does_not_reset_new_run_state(session):
+    await seed_previous_run(session)
+    factory = async_sessionmaker(bind=session.bind, expire_on_commit=False, join_transaction_mode="create_savepoint")
+    message = run_message(
+        Topic.NODE_EVENTS, 2, payload=sample_node(NodeHealthState.NOT_READY), event_type="node.disk_pressure",
+    )
+    record = kafka_record(message)
+    consumer = RecordingConsumer(commit_failures=1)
+    with pytest.raises(CommitFailedError):
+        await consumer_module.handle_record(factory, consumer, record)
+    await apply_event(session, Topic.JOB_EVENTS, run_message(Topic.JOB_EVENTS, 2))
+    before = await persisted_rows(session)
+    await consumer_module.handle_record(factory, consumer, record)
+    assert await persisted_rows(session) == before
+    assert consumer.commit_requests == [{HANDLED: 11}] * 2
+    session.expire_all()
+    assert (await session.get(Job, "job-run-2")).lifecycle_state == "RUNNING"
+    assert (await session.get(Job, "old-running")).failure_reason == "simulation reset"
+
+
+@pytest.mark.parametrize("topic,event_type,payload", [
+    (Topic.NODE_EVENTS, "node.recovered", sample_node()),
+    (Topic.GPU_METRICS, "gpu.recovered", sample_gpu()),
+    (Topic.NODE_EVENTS, "node.kubelet_down", sample_node(NodeHealthState.NOT_READY)),
+])
+async def test_stale_records_leave_current_metrics_and_database_unchanged(session, topic, event_type, payload):
+    factory = async_sessionmaker(bind=session.bind, expire_on_commit=False, join_transaction_mode="create_savepoint")
+    consumer = RecordingConsumer()
+    await consumer_module.handle_record(factory, consumer, kafka_record(run_message(
+        Topic.NODE_EVENTS, 2, payload=sample_node(NodeHealthState.NOT_READY), event_type="node.kubelet_down",
+    )))
+    await consumer_module.handle_record(factory, consumer, kafka_record(run_message(
+        Topic.GPU_METRICS, 2, payload=sample_gpu().model_copy(update={"health_state": GpuHealthState.FAILED}),
+        event_type="gpu.driver_crash",
+    ), topic=Topic.GPU_METRICS.value))
+    samples = [
+        ("videre_node_health_state", {"node_id": "node-0", "state": "NOT_READY"}),
+        ("videre_gpu_health_state", {"node_id": "node-0", "gpu_id": "gpu-0-0", "state": "FAILED"}),
+        ("videre_node_failure_events_total", {"node_id": "node-0", "failure_mode": "node.kubelet_down"}),
+    ]
+    values = [REGISTRY.get_sample_value(name, labels) for name, labels in samples]
+    before = await persisted_rows(session)
+    await consumer_module.handle_record(factory, consumer, kafka_record(
+        run_message(topic, 1, payload=payload, event_type=event_type), topic=topic.value, offset=11,
+    ))
+    assert await persisted_rows(session) == before
+    assert [REGISTRY.get_sample_value(name, labels) for name, labels in samples] == values
+    assert values[0:2] == [1.0, 1.0]
