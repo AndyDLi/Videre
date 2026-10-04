@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: videre-release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/andydli/videre
@@ -13,6 +17,20 @@ jobs:
   test-python:
     name: Test backend and simulator
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.10-bookworm
+        env:
+          POSTGRES_DB: videre_test
+          POSTGRES_PASSWORD: ci_postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d videre_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:ci_postgres@127.0.0.1:5432/videre_test
+      VIDERE_TEST_DATABASE_URL: postgresql+asyncpg://videre_app:ci_videre_app@127.0.0.1:5432/videre_test
+      VIDERE_REQUIRE_DATABASE_TESTS: "1"
     steps:
       - uses: actions/checkout@v5
 
@@ -23,6 +41,16 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --locked --all-extras
+
+      - name: Migrate the empty test database and bootstrap application access
+        run: |
+          set -euo pipefail
+          uv run alembic upgrade head
+          uv run alembic current --check-heads
+          docker exec -i ${{ job.services.postgres.id }} psql -X -U postgres -d videre_test \
+            -v database_name=videre_test < scripts/bootstrap-postgres.sql
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d videre_test \
+            -c "ALTER ROLE videre_app PASSWORD 'ci_videre_app'"
 
       - name: Lint
         run: uv run ruff check .
@@ -81,6 +109,7 @@ jobs:
       python_version: ${{ steps.versions.outputs.python_version }}
       frontend_version: ${{ steps.versions.outputs.frontend_version }}
       short_sha: ${{ steps.versions.outputs.short_sha }}
+      record_sha: ${{ steps.record.outputs.record_sha }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -139,9 +168,15 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: Record the deployed tags in git
+      - name: Record the desired image tags in git
+        id: record
         run: |
           set -euo pipefail
+          current=$(git ls-remote --exit-code origin refs/heads/main | cut -f1)
+          if [ "$current" != "$GITHUB_SHA" ]; then
+            echo "Release superseded before image recording: main is $current" >&2
+            exit 1
+          fi
           backend="${IMAGE_PREFIX}-backend:${{ steps.versions.outputs.python_version }}-${{ steps.versions.outputs.short_sha }}"
           frontend="${IMAGE_PREFIX}-frontend:${{ steps.versions.outputs.frontend_version }}-${{ steps.versions.outputs.short_sha }}"
           simulator="${IMAGE_PREFIX}-simulator:${{ steps.versions.outputs.python_version }}-${{ steps.versions.outputs.short_sha }}"
@@ -156,15 +191,19 @@ jobs:
 
           if git diff --quiet; then
             echo "manifests already record these tags"
+            echo "record_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             exit 0
+          else
+            diff_status=$?
+            [ "$diff_status" -eq 1 ] || exit "$diff_status"
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add k8s/backend/30-deployment.yaml k8s/frontend/30-deployment.yaml k8s/simulator/20-deployment.yaml
-          git commit -m "Record deployed image tags for ${{ steps.versions.outputs.short_sha }}"
-          git pull --rebase origin main
+          git commit -m "Record desired image tags for ${{ steps.versions.outputs.short_sha }}"
           git push origin HEAD:main
+          echo "record_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to the cluster
@@ -172,6 +211,7 @@ jobs:
     needs: [build-and-push]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
+      RECORD_SHA: ${{ needs.build-and-push.outputs.record_sha }}
       PYTHON_TAG: ${{ needs.build-and-push.outputs.python_version }}-${{ needs.build-and-push.outputs.short_sha }}
       FRONTEND_TAG: ${{ needs.build-and-push.outputs.frontend_version }}-${{ needs.build-and-push.outputs.short_sha }}
     steps:
@@ -201,23 +241,33 @@ jobs:
           echo "cluster access is correctly limited to the videre namespace"
 
       # The consumer must understand new simulator envelopes before they are published.
-      - name: Deploy the backend and wait until ready
+      - name: Deploy ordered application images and record verified rollout
         run: |
           set -euo pipefail
-          kubectl set image deployment/backend backend=${{ env.IMAGE_PREFIX }}-backend:${{ env.PYTHON_TAG }}
-          kubectl rollout status deployment/backend --timeout=180s
-
-      - name: Deploy the simulator and wait until ready
-        run: |
-          set -euo pipefail
-          kubectl set image deployment/simulator simulator=${{ env.IMAGE_PREFIX }}-simulator:${{ env.PYTHON_TAG }}
-          kubectl rollout status deployment/simulator --timeout=180s
-
-      - name: Deploy the frontend and wait until ready
-        run: |
-          set -euo pipefail
-          kubectl set image deployment/frontend frontend=${{ env.IMAGE_PREFIX }}-frontend:${{ env.FRONTEND_TAG }}
-          kubectl rollout status deployment/frontend --timeout=180s
+          test -n "$RECORD_SHA"
+          rollout() {
+            local name="$1" image="$2" current actual
+            current=$(git ls-remote --exit-code "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" refs/heads/main | cut -f1)
+            if [ "$current" != "$RECORD_SHA" ]; then
+              echo "Release superseded before $name: main is $current" >&2
+              return 1
+            fi
+            kubectl set image "deployment/$name" "$name=$image"
+            kubectl rollout status "deployment/$name" --timeout=180s
+            actual=$(kubectl get deployment "$name" -o "jsonpath={.spec.template.spec.containers[?(@.name=='$name')].image}")
+            test "$actual" = "$image"
+          }
+          backend="${IMAGE_PREFIX}-backend:${PYTHON_TAG}"
+          simulator="${IMAGE_PREFIX}-simulator:${PYTHON_TAG}"
+          frontend="${IMAGE_PREFIX}-frontend:${FRONTEND_TAG}"
+          rollout backend "$backend"
+          rollout simulator "$simulator"
+          rollout frontend "$frontend"
+          {
+            printf 'Verified application rollout\n\nSource: `%s`\n\nDesired record: `%s`\n\n' "$GITHUB_SHA" "$RECORD_SHA"
+            printf -- '- Backend: `%s`\n- Simulator: `%s`\n- Frontend: `%s`\n\n' "$backend" "$simulator" "$frontend"
+            printf '[Workflow run](%s/%s/actions/runs/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report what is running
         if: always()

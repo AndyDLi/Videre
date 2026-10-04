@@ -141,3 +141,146 @@ Once WSL has shut down, the public URL returns `502 Bad Gateway` because nothing
 CI uses `videre-deployer`, with patch permission only on `backend`, `frontend`, and `simulator`. Deployment reads support discovery and rollout status; Pod list supports diagnostics. It cannot update unrelated Deployments, read Secrets, install policies/RBAC, or exec into Pods. The simulator's permissions and generated-Pod boundary are described in `docs/materialization.md`.
 
 `k8s/namespace/30-admission.yaml` contains four native ValidatingAdmissionPolicies with fail-closed Deny bindings scoped to `videre`. Requests are matched by authenticated identity and resource names, never workload labels. The current k3s configuration uses `system:serviceaccount:kube-system:job-controller` to create Job Pods; another controller identity requires a deliberate policy update, not a broad exception.
+
+
+## Database and Release Operations
+
+CI migrates disposable PostgreSQL 17.10 before running tests as `videre_app`. Required database tests fail if their URL is missing. Use a separate prepared database for local tests; never use production.
+
+CI updates images only. An operator applies schema, role, Secret and ConfigMap changes from the reviewed release checkout. The app role can read/write data but cannot migrate the schema. Backend images contain no Alembic files; `/healthz` checks connectivity, not schema or table grants.
+
+### Fresh Database Installation
+
+Use the reviewed release checkout and an administrator kubeconfig. Verify its full SHA and the cluster endpoint:
+
+```bash
+read -r -p 'Reviewed checkout SHA: ' release_source
+[[ "$release_source" =~ ^[0-9a-f]{40}$ ]] && [ "$(git rev-parse HEAD)" = "$release_source" ] || exit 1
+export KUBECONFIG="$HOME/.kube/config"
+kubectl config current-context
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}'
+```
+
+Stop if either target is wrong. Create the four Secrets and apply the stack as described in README, then pause backend and simulator until the database is ready:
+
+```bash
+kubectl -n videre scale deployment/backend deployment/simulator --replicas=0
+kubectl -n videre rollout status deployment/postgres --timeout=180s
+kubectl -n videre port-forward service/postgres 15432:5432
+```
+
+Leave port-forward running. In another WSL terminal, enter the administrative SQLAlchemy URL using `postgres`, `127.0.0.1:15432`, database `videre`, and the administrator password. The prompt hides the URL:
+
+```bash
+read -rs -p 'Admin DATABASE_URL: ' DATABASE_URL; printf '\n'
+export DATABASE_URL
+uv sync --locked --all-extras
+uv run alembic upgrade 8d7e3a9164b2
+uv run alembic current --check-heads
+unset DATABASE_URL
+```
+
+This release targets `8d7e3a9164b2`. Future releases must specify their starting and target revisions; do not use an unchecked `head` in production. Run bootstrap only on a fresh database without `videre_app`:
+
+```bash
+kubectl -n videre exec -i deployment/postgres -- \
+  psql -X -U postgres -d videre -v database_name=videre < scripts/bootstrap-postgres.sql
+kubectl -n videre exec -it deployment/postgres -- \
+  psql -X -U postgres -d videre -c '\password videre_app'
+```
+
+Set the password to match `postgres-app-secret`, with user `videre_app`. Keep real passwords out of SQL files, Git and command arguments. Bootstrap grants database CONNECT, schema USAGE and table SELECT/INSERT/UPDATE/DELETE without schema CREATE or table ownership. Future-table grants apply to tables created by `postgres`; update and verify default grants if the migration owner changes.
+
+Verify the revision and application access before resuming:
+
+```bash
+kubectl -n videre exec -i deployment/postgres -- psql -X -v ON_ERROR_STOP=1 -U postgres -d videre <<'SQL'
+SELECT version_num FROM public.alembic_version;
+SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+FROM pg_roles WHERE rolname = 'videre_app';
+SELECT has_schema_privilege('videre_app', 'videre', 'USAGE') AS usage,
+       has_schema_privilege('videre_app', 'videre', 'CREATE') AS create;
+SELECT c.relname, p.privilege,
+       has_table_privilege('videre_app', c.oid, p.privilege) AS allowed
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(privilege)
+WHERE n.nspname = 'videre' AND c.relkind = 'r' ORDER BY c.relname, p.privilege;
+SET ROLE videre_app;
+SELECT id, simulation_run_id, simulation_run_started_at FROM videre.clusters LIMIT 0;
+RESET ROLE;
+SQL
+```
+
+Stop unless the revision is `8d7e3a9164b2`, login is true, elevated flags are false, USAGE is true, CREATE is false, and all 28 table grants are true. Inspect the results: `ON_ERROR_STOP` catches SQL errors, not false values. Then resume:
+
+```bash
+kubectl -n videre scale deployment/backend --replicas=1
+kubectl -n videre rollout status deployment/backend --timeout=180s
+kubectl -n videre scale deployment/simulator --replicas=1
+kubectl -n videre rollout status deployment/simulator --timeout=180s
+```
+
+Check backend readiness with the actual app Secret, then verify application APIs and consumer progress.
+
+### Revision-Specific Schema and Configuration Changes
+
+The simulation-boundary migration is `c41f8a7d2b95 -> 8d7e3a9164b2`, from source `b6e9d0d8f0a3352a2202e9bdc6e6dc70697896cf`. Verify the checkout has those migration definitions:
+
+```bash
+git diff --exit-code b6e9d0d8f0a3352a2202e9bdc6e6dc70697896cf -- alembic alembic.ini
+```
+
+Coordinate exclusive access and pause the simulator. Using the admin URL and port-forward above, run `uv run alembic current`. Upgrade with `uv run alembic upgrade 8d7e3a9164b2` only from `c41f8a7d2b95`. If already at the target, verify it; stop for any other revision. Check the target, nullable columns and validated paired constraint:
+
+```bash
+kubectl -n videre exec -i deployment/postgres -- psql -X -v ON_ERROR_STOP=1 -U postgres -d videre <<'SQL'
+SELECT version_num FROM public.alembic_version;
+SELECT column_name, is_nullable FROM information_schema.columns
+WHERE table_schema = 'videre' AND table_name = 'clusters'
+  AND column_name IN ('simulation_run_id', 'simulation_run_started_at');
+SELECT conname, convalidated, pg_get_constraintdef(oid) FROM pg_constraint
+WHERE conrelid = 'videre.clusters'::regclass AND conname = 'ck_clusters_simulation_run_paired';
+SQL
+```
+
+Require both columns to be nullable and the paired constraint validated. Repeat the app-role checks. Deploy a backend that accepts v1/v2 events before starting a v2 simulator. This CI change needs no production migration or configuration update; the target was already verified live.
+
+For future schema/configuration changes, record these in the PR/runbook:
+
+- Full source SHA and starting/target schema revisions.
+- Exact manifests, affected workloads and operator commands.
+- Compatibility with application versions and retained events.
+- Verification steps and a compatible recovery target.
+
+Prepare compatible schema/configuration before merging. Apply only the named manifests; restart workloads whose environment changed. Applying the full stack can restore stale image tags. Breaking changes require a staged rollout plan.
+
+### Verified Releases and Compatible Recovery
+
+Manifest tags describe desired images. A successful deploy job and rollout summary confirm the deployed release, including source SHA, image-tag commit, images and run link. After failure, compare desired tags, running images and the last successful release. Keep its run link and schema/configuration compatibility notes.
+
+A verified recovery baseline is:
+
+| Checkpoint | Value |
+|---|---|
+| Source revision | `b6e9d0d8f0a3352a2202e9bdc6e6dc70697896cf` |
+| Desired-tag commit | `6dca16bd50decfa00e8e252857b57596d7d8c386` |
+| Successful deployment | [run 37182816390](https://github.com/AndyDLi/Videre/actions/runs/37182816390) |
+| Backend/simulator | `0.9.0-b6e9d0d` |
+| Frontend | `0.9.2-b6e9d0d` |
+| Schema | `8d7e3a9164b2` |
+
+The baseline configuration and workload template were verified with the current policies. Recheck compatibility before recovery. Keep schema `8d7e3a9164b2`; image rollback does not require removing its added columns. A v1-only backend cannot consume retained v2 events, and pre-hardening simulator images fail admission. Choose a verified compatible release, not simply an older tag.
+
+Stop competing release workflows and coordinate exclusive access. Check current images, rollouts, schema, configuration and policies against the baseline. If incompatible, use the failed release's recovery plan. Otherwise restore these images in order:
+
+```bash
+kubectl -n videre set image deployment/backend backend=ghcr.io/andydli/videre-backend:0.9.0-b6e9d0d
+kubectl -n videre rollout status deployment/backend --timeout=180s
+kubectl -n videre set image deployment/simulator simulator=ghcr.io/andydli/videre-simulator:0.9.0-b6e9d0d
+kubectl -n videre rollout status deployment/simulator --timeout=180s
+kubectl -n videre set image deployment/frontend frontend=ghcr.io/andydli/videre-frontend:0.9.2-b6e9d0d
+kubectl -n videre rollout status deployment/frontend --timeout=180s
+kubectl -n videre get deployments -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[*].image,READY:.status.readyReplicas
+```
+
+Verify images, application APIs, consumer/materialization progress and schema/grants. Reconcile desired tags through reviewed Git changes before resuming releases. Avoid blind `rollout undo` or schema downgrades; resume only releases still desired and compatible.

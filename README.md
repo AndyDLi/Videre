@@ -220,10 +220,10 @@ uv run mypy              # strict type-checking
 uv run pytest            # unit tests
 ```
 
-*Note*: Database-backed tests skip unless pointed at a live Postgres instance:
+CI migrates a disposable PostgreSQL 17.10 database and runs tests as `videre_app`. For local database tests, prepare a separate test database using [database setup](docs/setup.md#database-and-release-operations). Tests delete rows within a rolled-back transaction; never use production:
 
 ```bash
-VIDERE_TEST_DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/videre uv run pytest
+VIDERE_REQUIRE_DATABASE_TESTS=1 VIDERE_TEST_DATABASE_URL=postgresql+asyncpg://videre_app:test_password@localhost:5432/videre_test uv run pytest
 ```
 
 The dev server automatically proxies `/api` and `/grafana` to the live cluster via Traefik.
@@ -247,19 +247,20 @@ These four secrets are excluded from Git. Create them manually in your cluster, 
 
 #### 2. Apply Manifests
 
-Deply the core kustomization alongside two one-time bootstrap manifests (for Kafka topic and Traefik configuration):
+Deploy the core kustomization alongside two one-time bootstrap manifests (for Kafka topic and Traefik configuration):
 
 ```bash
 kubectl apply -k k8s/
 kubectl apply -f k8s/kafka/30-topics-job.yaml
 kubectl apply -f k8s/traefik/01-helmchartconfig.yaml
+kubectl -n videre scale deployment/backend deployment/simulator --replicas=0
 ```
 
-#### 3. Apply Schema Migration
+#### 3. Prepare Database Schema and Application Access
 
-```bash
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/videre uv run alembic upgrade head
-```
+Follow [database setup](docs/setup.md#database-and-release-operations) to migrate as `postgres`, create `videre_app` with `scripts/bootstrap-postgres.sql`, and verify access before restarting backend and simulator. In `postgres-app-secret`, set `POSTGRES_APP_USER=videre_app` and use the password assigned to that role.
+
+CI updates images only. Apply schema and configuration changes manually from the reviewed release revision. A release succeeds only after deployment passes; image tags alone do not confirm success. The runbook covers compatibility and recovery.
 
 #### 4. Control the Demo
 
