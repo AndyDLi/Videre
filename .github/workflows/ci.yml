@@ -185,12 +185,16 @@ jobs:
       - name: Confirm the deploy identity can reach its own namespace
         run: |
           kubectl get deployments
-          test "$(kubectl auth can-i patch deployments || true)" = "yes"
-          test "$(kubectl auth can-i get pods || true)" = "yes"
+          for deployment in backend simulator frontend; do
+            test "$(kubectl auth can-i patch deployment/$deployment || true)" = "yes"
+          done
+          test "$(kubectl auth can-i list pods || true)" = "yes"
 
       - name: Confirm the deploy identity is denied everything else
         run: |
           test "$(kubectl auth can-i get secrets || true)" = "no"
+          test "$(kubectl auth can-i patch deployment/postgres || true)" = "no"
+          test "$(kubectl auth can-i update deployment/backend || true)" = "no"
           test "$(kubectl auth can-i delete deployments || true)" = "no"
           test "$(kubectl auth can-i create pods || true)" = "no"
           test "$(kubectl auth can-i get pods --namespace kube-system || true)" = "no"

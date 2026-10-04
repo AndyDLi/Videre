@@ -27,11 +27,16 @@ The simulator reaches into the idle Pod and injects a single command (`complete`
 - **`fail`**: The Pod exits with a non-zero error code (e.g., code `1`).
 - **`oom`**: The Pod executes a rapid memory-allocation script, intentionally breaching its `resources.limits.memory`.
 
-### 4. Secure Authorization (RBAC)
-To orchestrate this without compromising cluster security, the simulator is granted a highly scoped identity via a Kubernetes `ServiceAccount`, `Role`, and `RoleBinding`. We grant the exact permissions required to maintain the bridge, and nothing more:
-- `jobs` (`create`, `delete`, `get`, `list`, `watch`): To manage the representative workloads.
-- `pods` (`get`, `list`, `watch`): To monitor the physical state of the pods.
-- `pods/exec` (`create`, `get`): The critical permissions allowing the simulator to inject the final state command.
+### 4. Authorization and Admission
+
+The simulator uses `videre-simulator` in the `videre` namespace. Its Role permits Job creation, Pod get/list, and Pod exec get/create. The Python client uses GET WebSocket exec; current Kubernetes also requires create authorization for that connection. Jobs expire through the Kubernetes TTL controller, so the simulator needs no Job read, watch, or delete permission.
+
+Native ValidatingAdmissionPolicies enforce the boundaries RBAC cannot express:
+- Simulator Jobs must use the reserved `sim-job-` name family and the bounded workload template: default ServiceAccount, token automount disabled, one `workload` container, no credential inputs or volumes, no host access, no privilege escalation, dropped capabilities, and RuntimeDefault seccomp. Automatic selection prevents adoption of unrelated Pods.
+- Reserved Pods may be created only by the authenticated Job controller, with a controlling reserved Job owner. The same template restrictions apply to Pod, ephemeral-container, and resize updates. Labels never grant an exception.
+- Simulator exec is admitted only for the protected Pod name family. CONNECT admission receives connection options rather than the target Pod, so the name family is protected at creation, not inferred from copied labels.
+
+Deployment admission also prevents the CI identity from changing application identities, credential inputs, mounts, container membership, or resource/security/host settings. Deployment authority still includes trust in application code: an arbitrary replacement image can use the credentials already supplied to that application. These controls do not isolate workloads from existing application services or prevent resource exhaustion through permitted operations. See `docs/setup.md` for activation and credential rotation.
 
 ---
 

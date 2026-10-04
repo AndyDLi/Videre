@@ -1,0 +1,345 @@
+# Additional boundaries that namespace RBAC cannot express.
+# Install with admin credentials only after the hardened simulator is deployed
+# and older materialized Jobs have expired; see docs/setup.md.
+# Labels never grant an exception. Ordinary Alloy/Prometheus workloads are outside
+# these actor/resource scopes, preserving their required mounts and API access.
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: videre-deployer-boundary
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [apps]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [deployments]
+      scope: Namespaced
+  matchConditions:
+  - name: namespace
+    expression: request.namespace == 'videre'
+  - name: deployer
+    expression: request.userInfo.username == 'system:serviceaccount:videre:videre-deployer'
+  variables:
+  - name: p
+    expression: object.spec.template.spec
+  - name: oldP
+    expression: oldObject.spec.template.spec
+  validations:
+  - expression: request.name in ['backend', 'frontend', 'simulator']
+    message: The deployer may patch only backend, frontend, and simulator.
+    reason: Forbidden
+  - expression: object.spec.selector == oldObject.spec.selector && object.spec.template.metadata == oldObject.spec.template.metadata
+      && object.metadata.?ownerReferences == oldObject.metadata.?ownerReferences && object.metadata.?finalizers
+      == oldObject.metadata.?finalizers
+    message: The deployer may not change workload ownership, selectors, or template metadata.
+    reason: Forbidden
+  - expression: |-
+      variables.p.?serviceAccountName == variables.oldP.?serviceAccountName &&
+      variables.p.?serviceAccount == variables.oldP.?serviceAccount &&
+      variables.p.?automountServiceAccountToken == variables.oldP.?automountServiceAccountToken &&
+      variables.p.?volumes == variables.oldP.?volumes &&
+      variables.p.?imagePullSecrets == variables.oldP.?imagePullSecrets &&
+      variables.p.?resourceClaims == variables.oldP.?resourceClaims &&
+      variables.p.?securityContext == variables.oldP.?securityContext &&
+      variables.p.?runtimeClassName == variables.oldP.?runtimeClassName &&
+      variables.p.?resources == variables.oldP.?resources &&
+      variables.p.?hostNetwork == variables.oldP.?hostNetwork &&
+      variables.p.?hostPID == variables.oldP.?hostPID &&
+      variables.p.?hostIPC == variables.oldP.?hostIPC &&
+      variables.p.?initContainers == variables.oldP.?initContainers &&
+      variables.p.?ephemeralContainers == variables.oldP.?ephemeralContainers &&
+      variables.p.?terminationGracePeriodSeconds == variables.oldP.?terminationGracePeriodSeconds
+    message: The deployer may not change Pod identity, credentials, resources, or host/security settings.
+    reason: Forbidden
+  - expression: |-
+      size(variables.p.containers) == size(variables.oldP.containers) &&
+      variables.p.containers.all(c, variables.oldP.containers.exists(previous,
+        c.name == previous.name &&
+        c.?env == previous.?env &&
+      c.?envFrom == previous.?envFrom &&
+      c.?volumeMounts == previous.?volumeMounts &&
+      c.?volumeDevices == previous.?volumeDevices &&
+      c.?securityContext == previous.?securityContext &&
+      c.?ports == previous.?ports &&
+      c.?resources == previous.?resources &&
+      c.?lifecycle == previous.?lifecycle
+      ))
+    message: The deployer may not add containers or change their credential, mount, resource, or security settings.
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: videre-deployer-boundary
+spec:
+  policyName: videre-deployer-boundary
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: videre
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: videre-materialized-jobs
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [batch]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [jobs]
+      scope: Namespaced
+  matchConditions:
+  - name: namespace
+    expression: request.namespace == 'videre'
+  - name: simulator-or-reserved
+    expression: request.userInfo.username == 'system:serviceaccount:videre:videre-simulator' || object.metadata.name.startsWith('sim-job-')
+      || object.metadata.?generateName.orValue('').startsWith('sim-job-')
+  variables:
+  - name: p
+    expression: object.spec.template.spec
+  validations:
+  - expression: request.operation != 'CREATE' || (request.userInfo.username == 'system:serviceaccount:videre:videre-simulator'
+      && object.metadata.name.startsWith('sim-job-'))
+    message: Only the simulator may create reserved sim-job- Jobs, and all simulator Jobs must use that name family.
+    reason: Forbidden
+  - expression: '!has(object.metadata.generateName) || object.metadata.generateName.startsWith(''sim-job-'')'
+    message: Reserved Job generateName must use sim-job-.
+    reason: Forbidden
+  - expression: '!has(object.spec.template.metadata.name) && !has(object.spec.template.metadata.generateName)'
+    message: Materialized Jobs may not supply Pod names or generateName.
+    reason: Forbidden
+  - expression: '!object.spec.?manualSelector.orValue(false) && object.spec.?parallelism.orValue(1) == 1 && object.spec.?completions.orValue(1)
+      == 1 && !object.spec.?suspend.orValue(false) && !has(object.spec.managedBy) && object.spec.backoffLimit ==
+      0 && object.spec.activeDeadlineSeconds > 0 && object.spec.activeDeadlineSeconds <= 120 && object.spec.ttlSecondsAfterFinished
+      > 0 && object.spec.ttlSecondsAfterFinished <= 120'
+    message: Materialized Jobs must use the built-in controller, automatic selection, and bounded one-shot lifecycle.
+    reason: Forbidden
+  - expression: |-
+      variables.p.serviceAccountName == 'default' &&
+      variables.p.?serviceAccount.orValue('default') == 'default' &&
+      has(variables.p.automountServiceAccountToken) && !variables.p.automountServiceAccountToken &&
+      variables.p.restartPolicy == 'Never' &&
+      variables.p.?terminationGracePeriodSeconds.orValue(30) >= 0 &&
+      variables.p.?terminationGracePeriodSeconds.orValue(30) <= 30 &&
+      !variables.p.?hostNetwork.orValue(false) && !variables.p.?hostPID.orValue(false) && !variables.p.?hostIPC.orValue(false) &&
+      !has(variables.p.runtimeClassName) && !has(variables.p.resources) &&
+      (!has(variables.p.volumes) || size(variables.p.volumes) == 0) &&
+      (!has(variables.p.imagePullSecrets) || size(variables.p.imagePullSecrets) == 0) &&
+      (!has(variables.p.resourceClaims) || size(variables.p.resourceClaims) == 0) &&
+      (!has(variables.p.initContainers) || size(variables.p.initContainers) == 0) &&
+      (!has(variables.p.ephemeralContainers) || size(variables.p.ephemeralContainers) == 0) &&
+      (!has(variables.p.securityContext) || (
+        !has(variables.p.securityContext.runAsUser) &&
+        !has(variables.p.securityContext.runAsGroup) &&
+        !has(variables.p.securityContext.runAsNonRoot) &&
+        !has(variables.p.securityContext.fsGroup) &&
+        !has(variables.p.securityContext.fsGroupChangePolicy) &&
+        !has(variables.p.securityContext.supplementalGroups) &&
+        !has(variables.p.securityContext.supplementalGroupsPolicy) &&
+        !has(variables.p.securityContext.sysctls) &&
+        !has(variables.p.securityContext.seLinuxOptions) &&
+        !has(variables.p.securityContext.seLinuxChangePolicy) &&
+        !has(variables.p.securityContext.windowsOptions) &&
+        !has(variables.p.securityContext.seccompProfile) &&
+        !has(variables.p.securityContext.appArmorProfile)
+      )) &&
+      size(variables.p.containers) == 1 && variables.p.containers.all(c,
+        c.name == 'workload' && !has(c.lifecycle) &&
+        (!has(c.env) || size(c.env) == 0) &&
+        (!has(c.envFrom) || size(c.envFrom) == 0) &&
+        (!has(c.volumeMounts) || size(c.volumeMounts) == 0) &&
+        (!has(c.volumeDevices) || size(c.volumeDevices) == 0) &&
+        (!has(c.ports) || size(c.ports) == 0) &&
+        has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation) && !c.securityContext.allowPrivilegeEscalation &&
+        !c.securityContext.?privileged.orValue(false) &&
+        has(c.securityContext.capabilities) && c.securityContext.capabilities.drop == ['ALL'] &&
+        (!has(c.securityContext.capabilities.add) || size(c.securityContext.capabilities.add) == 0) &&
+        has(c.securityContext.seccompProfile) && c.securityContext.seccompProfile.type == 'RuntimeDefault' &&
+        !has(c.securityContext.seccompProfile.localhostProfile) &&
+        !has(c.securityContext.runAsUser) &&
+        !has(c.securityContext.runAsGroup) &&
+        !has(c.securityContext.runAsNonRoot) &&
+        !has(c.securityContext.readOnlyRootFilesystem) &&
+        !has(c.securityContext.procMount) &&
+        !has(c.securityContext.seLinuxOptions) &&
+        !has(c.securityContext.windowsOptions) &&
+        !has(c.securityContext.appArmorProfile) &&
+        has(c.resources) && (!has(c.resources.claims) || size(c.resources.claims) == 0) &&
+        has(c.resources.requests) && has(c.resources.limits) &&
+        c.resources.requests == {'cpu': '5m', 'memory': '16Mi'} &&
+        c.resources.limits == {'cpu': '50m', 'memory': '32Mi'}
+      )
+    message: Materialized Jobs must use the token-free, credential-free workload template with fixed resource and
+      security bounds.
+    reason: Forbidden
+  - expression: |-
+      (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) &&
+      (!has(object.spec.template.metadata.finalizers) || size(object.spec.template.metadata.finalizers) == 0)
+    message: Materialized workloads may not add finalizers that prevent automatic cleanup.
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: videre-materialized-jobs
+spec:
+  policyName: videre-materialized-jobs
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: videre
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: videre-materialized-pods
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ['']
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+      scope: Namespaced
+    - apiGroups: ['']
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods, pods/ephemeralcontainers, pods/resize]
+      scope: Namespaced
+  matchConditions:
+  - name: namespace
+    expression: request.namespace == 'videre'
+  - name: reserved
+    expression: object.metadata.name.startsWith('sim-job-') || object.metadata.?generateName.orValue('').startsWith('sim-job-')
+  variables:
+  - name: p
+    expression: object.spec
+  validations:
+  - expression: request.operation != 'CREATE' || request.userInfo.username == 'system:serviceaccount:kube-system:job-controller'
+    message: Only the authenticated Job controller may create reserved sim-job- Pods.
+    reason: Forbidden
+  - expression: has(object.metadata.ownerReferences) && size(object.metadata.ownerReferences) == 1 && object.metadata.ownerReferences.all(owner,
+      owner.apiVersion == 'batch/v1' && owner.kind == 'Job' && owner.?controller.orValue(false) && owner.name.startsWith('sim-job-')
+      && object.metadata.name.startsWith(owner.name + '-') && size(owner.uid) > 0)
+    message: Reserved Pods must belong to a controlling sim-job- Job and use its generated name family.
+    reason: Forbidden
+  - expression: '!has(object.metadata.generateName) || object.metadata.generateName.startsWith(''sim-job-'')'
+    message: Reserved Pod generateName must use sim-job-.
+    reason: Forbidden
+  - expression: |-
+      variables.p.serviceAccountName == 'default' &&
+      variables.p.?serviceAccount.orValue('default') == 'default' &&
+      has(variables.p.automountServiceAccountToken) && !variables.p.automountServiceAccountToken &&
+      variables.p.restartPolicy == 'Never' &&
+      variables.p.?terminationGracePeriodSeconds.orValue(30) >= 0 &&
+      variables.p.?terminationGracePeriodSeconds.orValue(30) <= 30 &&
+      !variables.p.?hostNetwork.orValue(false) && !variables.p.?hostPID.orValue(false) && !variables.p.?hostIPC.orValue(false) &&
+      !has(variables.p.runtimeClassName) && !has(variables.p.resources) &&
+      (!has(variables.p.volumes) || size(variables.p.volumes) == 0) &&
+      (!has(variables.p.imagePullSecrets) || size(variables.p.imagePullSecrets) == 0) &&
+      (!has(variables.p.resourceClaims) || size(variables.p.resourceClaims) == 0) &&
+      (!has(variables.p.initContainers) || size(variables.p.initContainers) == 0) &&
+      (!has(variables.p.ephemeralContainers) || size(variables.p.ephemeralContainers) == 0) &&
+      (!has(variables.p.securityContext) || (
+        !has(variables.p.securityContext.runAsUser) &&
+        !has(variables.p.securityContext.runAsGroup) &&
+        !has(variables.p.securityContext.runAsNonRoot) &&
+        !has(variables.p.securityContext.fsGroup) &&
+        !has(variables.p.securityContext.fsGroupChangePolicy) &&
+        !has(variables.p.securityContext.supplementalGroups) &&
+        !has(variables.p.securityContext.supplementalGroupsPolicy) &&
+        !has(variables.p.securityContext.sysctls) &&
+        !has(variables.p.securityContext.seLinuxOptions) &&
+        !has(variables.p.securityContext.seLinuxChangePolicy) &&
+        !has(variables.p.securityContext.windowsOptions) &&
+        !has(variables.p.securityContext.seccompProfile) &&
+        !has(variables.p.securityContext.appArmorProfile)
+      )) &&
+      size(variables.p.containers) == 1 && variables.p.containers.all(c,
+        c.name == 'workload' && !has(c.lifecycle) &&
+        (!has(c.env) || size(c.env) == 0) &&
+        (!has(c.envFrom) || size(c.envFrom) == 0) &&
+        (!has(c.volumeMounts) || size(c.volumeMounts) == 0) &&
+        (!has(c.volumeDevices) || size(c.volumeDevices) == 0) &&
+        (!has(c.ports) || size(c.ports) == 0) &&
+        has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation) && !c.securityContext.allowPrivilegeEscalation &&
+        !c.securityContext.?privileged.orValue(false) &&
+        has(c.securityContext.capabilities) && c.securityContext.capabilities.drop == ['ALL'] &&
+        (!has(c.securityContext.capabilities.add) || size(c.securityContext.capabilities.add) == 0) &&
+        has(c.securityContext.seccompProfile) && c.securityContext.seccompProfile.type == 'RuntimeDefault' &&
+        !has(c.securityContext.seccompProfile.localhostProfile) &&
+        !has(c.securityContext.runAsUser) &&
+        !has(c.securityContext.runAsGroup) &&
+        !has(c.securityContext.runAsNonRoot) &&
+        !has(c.securityContext.readOnlyRootFilesystem) &&
+        !has(c.securityContext.procMount) &&
+        !has(c.securityContext.seLinuxOptions) &&
+        !has(c.securityContext.windowsOptions) &&
+        !has(c.securityContext.appArmorProfile) &&
+        has(c.resources) && (!has(c.resources.claims) || size(c.resources.claims) == 0) &&
+        has(c.resources.requests) && has(c.resources.limits) &&
+        c.resources.requests == {'cpu': '5m', 'memory': '16Mi'} &&
+        c.resources.limits == {'cpu': '50m', 'memory': '32Mi'}
+      )
+    message: Materialized Pods must retain the token-free, credential-free workload template and fixed resource/security
+      bounds, including on resize and ephemeral-container updates.
+    reason: Forbidden
+  - expression: '!has(object.metadata.finalizers) || object.metadata.finalizers.all(f, f == ''batch.kubernetes.io/job-tracking'')'
+    message: Materialized workloads may not add finalizers that prevent automatic cleanup.
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: videre-materialized-pods
+spec:
+  policyName: videre-materialized-pods
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: videre
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: videre-simulator-exec
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ['']
+      apiVersions: [v1]
+      operations: [CONNECT]
+      resources: [pods/exec]
+      scope: Namespaced
+  matchConditions:
+  - name: namespace
+    expression: request.namespace == 'videre'
+  - name: simulator
+    expression: request.userInfo.username == 'system:serviceaccount:videre:videre-simulator'
+  validations:
+  - expression: request.name.startsWith('sim-job-')
+    message: The simulator may exec only into the protected sim-job- Pod family.
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: videre-simulator-exec
+spec:
+  policyName: videre-simulator-exec
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: videre

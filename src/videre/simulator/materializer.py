@@ -52,6 +52,11 @@ def build_materialized_job(
         name="workload",
         image=image,
         command=["sh", "-c", _OUTCOME_SCRIPT],
+        security_context=client.V1SecurityContext(
+            allow_privilege_escalation=False,
+            capabilities=client.V1Capabilities(drop=["ALL"]),
+            seccomp_profile=client.V1SeccompProfile(type="RuntimeDefault"),
+        ),
         resources=client.V1ResourceRequirements(
             requests={"cpu": "5m", "memory": "16Mi"},
             limits={"cpu": "50m", "memory": "32Mi"},
@@ -59,7 +64,10 @@ def build_materialized_job(
     )
     
     # define the wrapper around the container to define Pod-level behavior
-    pod_spec = client.V1PodSpec(restart_policy="Never", containers=[container])    # simulated jobs are one-shot
+    pod_spec = client.V1PodSpec(    # simulated jobs are one-shot
+        restart_policy="Never", containers=[container],
+        service_account_name="default", automount_service_account_token=False,
+    )
     template = client.V1PodTemplateSpec(metadata=client.V1ObjectMeta(labels=labels), spec=pod_spec)
     
     # define the Job spec that wraps the pod template and controls job-level behavior
