@@ -1,4 +1,10 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
+from sqlalchemy import text
 
 from videre.database.tables import SCHEMA_NAME, Base
 from videre.models import GpuHealthState, JobState, NodeHealthState, SchedulerEventType
@@ -93,3 +99,40 @@ async def test_database_enforces_paired_run_boundary(session, has_id, has_start)
                 await session.execute(statement, values)
     else:
         await session.execute(statement, values)
+
+
+def test_required_database_cannot_silently_skip():
+    env = dict(os.environ, VIDERE_REQUIRE_DATABASE_TESTS="1")
+    env.pop("VIDERE_TEST_DATABASE_URL", None)
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--tb=short",
+         "tests/test_database_schema.py::test_database_enforces_paired_run_boundary[False-False]"],
+        cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode != 0, result.stdout
+    assert "VIDERE_TEST_DATABASE_URL is required" in result.stdout, result.stdout
+
+
+async def test_database_session_uses_application_privileges(session):
+    role = (await session.execute(text(
+        "SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls "
+        "FROM pg_roles WHERE rolname = current_user"
+    ))).one()
+    assert not any(role)
+    schema = (await session.execute(text(
+        "SELECT has_schema_privilege(current_user, 'videre', 'USAGE'), "
+        "has_schema_privilege(current_user, 'videre', 'CREATE'), "
+        "pg_get_userbyid(nspowner) = current_user FROM pg_namespace WHERE nspname = 'videre'"
+    ))).one()
+    assert tuple(schema) == (True, False, False)
+    for table in Base.metadata.sorted_tables:
+        owner = await session.scalar(text(
+            "SELECT pg_get_userbyid(relowner) = current_user FROM pg_class "
+            "WHERE oid = CAST(:table AS regclass)"
+        ), {"table": table.fullname})
+        assert owner is False, table.fullname
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+            allowed = await session.scalar(text(
+                "SELECT has_table_privilege(current_user, :table, :privilege)"
+            ), {"table": table.fullname, "privilege": privilege})
+            assert allowed, (table.fullname, privilege)
