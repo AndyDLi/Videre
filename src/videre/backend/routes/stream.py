@@ -13,6 +13,7 @@ from redis.asyncio import Redis
 
 from ..cache.store import read_all_snapshots
 from ..websocket.limits import release, try_acquire
+from ..websocket.manager import SEND_TIMEOUT_SECONDS
 
 logger = logging.getLogger("videre.backend.stream")
 
@@ -40,11 +41,20 @@ async def cluster_health_stream(websocket: WebSocket) -> None:
         logger.warning("websocket refused: per-client cap reached", extra={"client_ip": client_ip})
         return
     
-    await manager.connect(websocket)
-    try:
-        await websocket.send_text(await current_payload(redis_client))
+    async def receive() -> None:
         while True:    # keep the connection open until the client disconnects
             await websocket.receive_text()
+
+    tasks: list[asyncio.Task[None] | asyncio.Task[bool]] = []
+    try:
+        disconnected = await manager.connect(websocket)
+        await manager.send(websocket, await current_payload(redis_client))
+        tasks = [asyncio.create_task(receive()), asyncio.create_task(disconnected.wait())]
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            task.result()
+        if disconnected.is_set():
+            await asyncio.wait_for(websocket.close(code=1011), timeout=SEND_TIMEOUT_SECONDS)
     except WebSocketDisconnect:
         logger.info("websocket client disconnected", extra={"client_ip": client_ip})
     except asyncio.CancelledError:
@@ -53,5 +63,8 @@ async def cluster_health_stream(websocket: WebSocket) -> None:
     except Exception as error:
         logger.warning("websocket failed", extra={"client_ip": client_ip, "error": str(error)})
     finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await manager.disconnect(websocket)
         await release(redis_client, client_ip)

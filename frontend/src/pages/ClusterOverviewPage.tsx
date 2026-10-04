@@ -30,7 +30,7 @@ const STATUS_CLASSES: Record<ConnectionStatus, string> = {
 };
 
 export function ClusterOverviewPage() {
-    const { snapshots, error, connectionStatus } = useClusterHealthStream();
+    const { snapshots, error, connectionStatus, ageSeconds, isStale } = useClusterHealthStream();
     const capacityFetcher = useCallback((signal: AbortSignal) => getCapacity(signal), []);
     const { data: capacity } = useApiResource(
         capacityFetcher,
@@ -54,11 +54,26 @@ export function ClusterOverviewPage() {
                 eyebrow="Real-Time Health"
                 title="Cluster Overview"
                 aside={
-                    <span className={`eyebrow ${STATUS_CLASSES[connectionStatus]}`} role="status">
-                        {STATUS_TEXT[connectionStatus]}
+                    <span
+                        className={`eyebrow ${isStale || error !== null ? 'text-state-warning' : STATUS_CLASSES[connectionStatus]}`}
+                        role="status"
+                    >
+                        {isStale
+                            ? 'Stale'
+                            : error !== null
+                              ? 'Refresh failed'
+                              : STATUS_TEXT[connectionStatus]}
+                        {' · '}
+                        {ageSeconds}s old
                     </span>
                 }
             />
+
+            {error !== null && (
+                <p className="mt-6 text-state-warning" role="alert">
+                    {error.detail}. Showing the last snapshot.
+                </p>
+            )}
 
             {snapshots.map((snapshot) => (
                 <div key={snapshot.cluster_id} className="mt-12">

@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         for task in app.state.background_tasks:
             task.cancel()
         await asyncio.gather(*app.state.background_tasks, return_exceptions=True)
+        await app.state.connection_manager.shutdown()
         await app.state.redis_client.aclose()
         await app.state.http_client.aclose()
         await engine.dispose()
