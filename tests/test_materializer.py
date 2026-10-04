@@ -30,6 +30,19 @@ def test_build_materialized_job_carries_simulated_labels_and_caps() -> None:
     assert job.spec.active_deadline_seconds == 120
     container = job.spec.template.spec.containers[0]
     assert container.resources.limits["memory"] == "32Mi"
+    pod = job.spec.template.spec
+    assert pod.service_account_name == "default"
+    assert pod.automount_service_account_token is False
+    assert not pod.volumes
+    assert not pod.init_containers
+    assert not pod.image_pull_secrets
+    assert not container.env
+    assert not container.env_from
+    assert container.security_context.allow_privilege_escalation is False
+    assert container.security_context.capabilities.drop == ["ALL"]
+    assert container.security_context.seccomp_profile.type == "RuntimeDefault"
+    assert container.command[0:2] == ["sh", "-c"]
+    assert "bs=512M" in container.command[2]
 
 
 class FakeMaterializer:

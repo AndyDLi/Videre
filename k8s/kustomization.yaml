@@ -10,6 +10,7 @@ resources:
   - namespace/00-namespace.yaml
   - namespace/10-limitrange.yaml
   - namespace/20-resourcequota.yaml
+  - namespace/30-admission.yaml
   - postgres/00-pvc.yaml
   - postgres/10-service.yaml
   - postgres/20-deployment.yaml

@@ -135,3 +135,9 @@ Once WSL has shut down, the public URL returns `502 Bad Gateway` because nothing
 | Grafana Database | 49M | 1Gi |
 | Loki Chunks & Index | 5M | 3Gi |
 | containerd Image Store | 5.6G | Not Enforced |
+
+## Kubernetes Deployment and Simulator Privileges
+
+CI uses `videre-deployer`, with patch permission only on `backend`, `frontend`, and `simulator`. Deployment reads support discovery and rollout status; Pod list supports diagnostics. It cannot update unrelated Deployments, read Secrets, install policies/RBAC, or exec into Pods. The simulator's permissions and generated-Pod boundary are described in `docs/materialization.md`.
+
+`k8s/namespace/30-admission.yaml` contains four native ValidatingAdmissionPolicies with fail-closed Deny bindings scoped to `videre`. Requests are matched by authenticated identity and resource names, never workload labels. The current k3s configuration uses `system:serviceaccount:kube-system:job-controller` to create Job Pods; another controller identity requires a deliberate policy update, not a broad exception.
