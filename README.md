@@ -46,7 +46,7 @@ https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
 
 ### 📡 Live Cluster Telemetry
 
-- **Real-Time Health Stream** - Node, GPU, and job states stream over a WebSocket, refreshing from a Redis snapshot every five seconds.
+- **Real-Time Health Stream** - Node, GPU, and job states stream over a WebSocket, refreshing from a Redis snapshot every five seconds. The dashboard retains the last snapshot and marks it **Stale** after 20 seconds without fresh data.
 - **Continuous Metrics** - Every GPU reports utilization, temperature, memory, and error counters on a ten-second cadence.
 - **Weighted Failure Injection** - Nineteen distinct failure modes span GPU, node, job, and capacity faults with weighted probabilities based on the event rarity.
 - **Automatic Recovery** - Unhealthy nodes and GPUs autonomously return to service, allowing the cluster to settle into a degraded steady state rather than cascading to a total outage.

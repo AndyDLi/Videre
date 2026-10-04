@@ -9,19 +9,34 @@ const CAPPED_CLOSE_CODE = 1013;
 const INITIAL_RECONNECT_DELAY_MILLISECONDS = 1_000;
 const MAXIMUM_RECONNECT_DELAY_MILLISECONDS = 30_000;
 const FALLBACK_POLL_INTERVAL_MILLISECONDS = 10_000;
+const STALE_AFTER_MILLISECONDS = 20_000;
 
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting' | 'capped';
+
+function isCountMap(value: unknown): boolean {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value) &&
+        Object.values(value).every(
+            (count: unknown) => typeof count === 'number' && Number.isInteger(count) && count >= 0,
+        )
+    );
+}
 
 interface ClusterHealthStream {
     snapshots: ClusterHealthSnapshot[] | null;
     error: ApiError | null;
     connectionStatus: ConnectionStatus;
+    ageSeconds: number | null;
+    isStale: boolean;
 }
 
 export function useClusterHealthStream(): ClusterHealthStream {
     const [snapshots, setSnapshots] = useState<ClusterHealthSnapshot[] | null>(null);
     const [error, setError] = useState<ApiError | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+    const [now, setNow] = useState(Date.now);
 
     useEffect(() => {
         let isActive = true;
@@ -29,13 +44,40 @@ export function useClusterHealthStream(): ClusterHealthStream {
         let reconnectTimer: number | undefined;
         let pollTimer: number | undefined;
         let attempt = 0;
+        const ageTimer = window.setInterval(() => setNow(Date.now()), 1_000);
+
+        const acceptSnapshots = (data: unknown): void => {
+            if (
+                !Array.isArray(data) ||
+                data.length === 0 ||
+                data.some(
+                    (snapshot: Partial<ClusterHealthSnapshot> | null) =>
+                        typeof snapshot !== 'object' ||
+                        snapshot === null ||
+                        typeof snapshot.cluster_id !== 'string' ||
+                        typeof snapshot.cluster_name !== 'string' ||
+                        typeof snapshot.generated_at !== 'string' ||
+                        !Number.isFinite(Date.parse(snapshot.generated_at)) ||
+                        !isCountMap(snapshot.nodes_by_health_state) ||
+                        !isCountMap(snapshot.gpus_by_health_state) ||
+                        !isCountMap(snapshot.jobs_by_lifecycle_state) ||
+                        typeof snapshot.unresolved_failure_count !== 'number' ||
+                        !Number.isInteger(snapshot.unresolved_failure_count) ||
+                        snapshot.unresolved_failure_count < 0,
+                )
+            ) {
+                throw new Error('cluster health snapshots are missing or malformed');
+            }
+            setSnapshots(data as ClusterHealthSnapshot[]);
+            setNow(Date.now());
+            setError(null);
+        };
 
         const loadOverRest = async (): Promise<void> => {
             try {
                 const clusters = await listClusters();
                 if (isActive) {
-                    setSnapshots(clusters);
-                    setError(null);
+                    acceptSnapshots(clusters);
                 }
             } catch (caught) {
                 if (isActive) {
@@ -72,8 +114,7 @@ export function useClusterHealthStream(): ClusterHealthStream {
                     return;
                 }
                 try {
-                    setSnapshots(JSON.parse(event.data) as ClusterHealthSnapshot[]);
-                    setError(null);
+                    acceptSnapshots(JSON.parse(event.data));
                 } catch {
                     setError(toApiError(new Error('received a malformed cluster health frame')));
                 }
@@ -107,10 +148,25 @@ export function useClusterHealthStream(): ClusterHealthStream {
         return () => {
             isActive = false;
             clearTimeout(reconnectTimer);
+            clearInterval(ageTimer);
             stopPolling();
             socket?.close();
         };
     }, []);
 
-    return { snapshots, error, connectionStatus };
+    const ageMilliseconds =
+        snapshots === null
+            ? null
+            : Math.max(
+                  0,
+                  now - Math.min(...snapshots.map((snapshot) => Date.parse(snapshot.generated_at))),
+              );
+
+    return {
+        snapshots,
+        error,
+        connectionStatus,
+        ageSeconds: ageMilliseconds === null ? null : Math.floor(ageMilliseconds / 1_000),
+        isStale: ageMilliseconds !== null && ageMilliseconds >= STALE_AFTER_MILLISECONDS,
+    };
 }

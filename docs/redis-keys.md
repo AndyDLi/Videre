@@ -41,3 +41,4 @@ ai:resp:<entity_type>:<entity_id>:<digest>
 - Use Redis `noeviction`. Redis must reject writes when it reaches its memory limit rather than silently evicting keys.
 - Never allow rate-lmiit counters to be evicted. Losing them can temporarily bypass WebSocket or AI quota enforcement.
 - The configured Redis memory limit should comfortably exceed the expected dataset size. At Videre's scale, reaching the limit is not expected. Rejecting writes is nevertheless safer than weakening quota enforcement.
+- WebSocket broadcasts wait at most 2 seconds per client. Busy clients skip refreshes without queuing them. The last snapshot is marked **Stale** at 20 seconds.
