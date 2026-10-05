@@ -26,7 +26,7 @@ spec:
       serviceAccountName: videre-simulator
       containers:
         - name: simulator
-          image: ghcr.io/andydli/videre-simulator:0.9.0-1e8b365
+          image: ghcr.io/andydli/videre-simulator:0.9.0-a5abf2e
           envFrom:
             - configMapRef:
                 name: simulator-config
