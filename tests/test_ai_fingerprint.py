@@ -1,10 +1,11 @@
 
-from sqlalchemy import select
+import pytest
+from sqlalchemy import delete, select, update
 
 from test_event_mapping import sample_gpu, sample_job, sample_node
 from videre.backend.ai.fingerprint import load_fingerprint
 from videre.backend.persistence.event_mapping import apply_event
-from videre.database.tables import FailureEntityTable, FailureRecord
+from videre.database.tables import FailureEntityTable, FailureRecord, Gpu, Job, JobNodeAssignment, Node
 from videre.event_types import EventType, LifecycleEventType
 from videre.events import GpuMetricMessage, JobEventMessage, NodeEventMessage, Topic
 from videre.models import GpuHealthState, JobState, NodeHealthState
@@ -105,14 +106,14 @@ async def test_resolved_failures_are_excluded(session) -> None:
     assert fingerprint.unresolved_failure_ids == ()
 
 
-async def test_another_entitys_failure_does_not_leak_in(session) -> None:
-    """A fingerprint counts only its own entity's failures, not a neighbour's."""
+async def test_node_fingerprint_includes_its_gpu_failure(session) -> None:
+    """A node diagnosis changes when its own GPU fails."""
 
     await seed(session)
-    await fail_gpu(session)
+    failure_id = await fail_gpu(session)
     fingerprint = await load_fingerprint(session, FailureEntityTable.NODE, "node-0")
     assert fingerprint is not None
-    assert fingerprint.unresolved_failure_ids == ()
+    assert fingerprint.unresolved_failure_ids == (failure_id,)
 
 
 async def test_fingerprint_changes_when_health_state_changes(session) -> None:
@@ -158,5 +159,109 @@ async def test_fingerprint_is_stable_across_metric_churn(session) -> None:
     await session.flush()
     after = await load_fingerprint(session, FailureEntityTable.GPU, "gpu-0-0")
 
+    assert before is not None and after is not None
+    assert before.cache_fingerprint == after.cache_fingerprint
+
+
+@pytest.mark.parametrize("entity_type,entity_id,table,row_id,column,value", [
+    (FailureEntityTable.JOB, "job-1", Gpu, "gpu-0-0", "health_state", "FAILED"),
+    (FailureEntityTable.NODE, "node-0", Gpu, "gpu-0-0", "health_state", "FAILED"),
+    (FailureEntityTable.GPU, "gpu-0-0", Node, "node-0", "health_state", "NOT_READY"),
+    (FailureEntityTable.JOB, "job-1", Node, "node-0", "health_state", "NOT_READY"),
+    (FailureEntityTable.JOB, "job-1", Job, "job-1", "failure_reason", "timeout waiting for NCCL"),
+])
+async def test_related_diagnostic_state_changes_the_key(session, entity_type, entity_id, table, row_id, column, value):
+    await seed(session)
+    before = await load_fingerprint(session, entity_type, entity_id)
+    await session.execute(update(table).where(table.id == row_id).values({column: value}))
+    after = await load_fingerprint(session, entity_type, entity_id)
+    assert before is not None and after is not None
+    assert before.cache_fingerprint != after.cache_fingerprint
+
+
+async def test_assignment_changes_key_even_when_nodes_are_healthy(session):
+    from test_ai_postgres_source import add_node
+    await seed(session)
+    await add_node(session, "node-other")
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    await session.execute(delete(JobNodeAssignment).where(JobNodeAssignment.job_id == "job-1"))
+    session.add(JobNodeAssignment(job_id="job-1", node_id="node-other"))
+    await session.flush()
+    after = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert before is not None and after is not None
+    assert before.cache_fingerprint != after.cache_fingerprint
+
+
+async def test_related_incident_creation_resolution_and_correlation_changes_invalidate(session):
+    from datetime import UTC, datetime
+
+    from test_ai_postgres_source import add_node, failure
+    await seed(session)
+    await add_node(session, "node-other")
+    session.add(failure("direct"))
+    await session.flush()
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    session.add(failure("related", "node", "node-other"))
+    await session.flush()
+    created = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    await session.execute(
+        update(FailureRecord).where(FailureRecord.id == "related").values(resolved_at=datetime.now(UTC))
+    )
+    resolved = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    await session.execute(
+        update(FailureRecord).where(FailureRecord.id == "related").values(correlation_id="other-incident")
+    )
+    disconnected = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert all(value is not None for value in (before, created, resolved, disconnected))
+    assert before.cache_fingerprint != created.cache_fingerprint
+    assert created.cache_fingerprint != resolved.cache_fingerprint
+    assert resolved.cache_fingerprint != disconnected.cache_fingerprint
+    assert before.cache_fingerprint == disconnected.cache_fingerprint
+
+
+async def test_unrelated_node_changes_preserve_key(session):
+    from test_ai_postgres_source import add_node, failure
+    await seed(session)
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    await add_node(session, "node-unrelated")
+    session.add(failure("unrelated", "node", "node-unrelated"))
+    await session.flush()
+    after = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert before is not None and after is not None
+    assert before.cache_fingerprint == after.cache_fingerprint
+
+
+async def test_recent_evidence_expiring_changes_the_key(session):
+    from datetime import UTC, datetime, timedelta
+
+    from test_ai_postgres_source import failure
+    await seed(session)
+    session.add(failure("recent", resolved_at=datetime.now(UTC)-timedelta(minutes=30)))
+    await session.flush()
+    before = await load_fingerprint(session, FailureEntityTable.NODE, "node-0")
+    await session.execute(update(FailureRecord).values(resolved_at=datetime.now(UTC)-timedelta(hours=2)))
+    after = await load_fingerprint(session, FailureEntityTable.NODE, "node-0")
+    assert before is not None and after is not None
+    assert before.cache_fingerprint != after.cache_fingerprint
+
+
+async def test_fingerprint_is_independent_of_collection_order(session, monkeypatch):
+    from test_ai_postgres_source import add_gpu, failure
+    from videre.backend.ai import fingerprint as module
+    from videre.backend.ai.postgres_source import load_postgres_context
+    await seed(session)
+    await add_gpu(session, "gpu-another", "node-0")
+    session.add_all([failure("a"), failure("b")])
+    await session.flush()
+    context = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")
+    assert context is not None
+    async def lookup(*args):
+        return context
+    monkeypatch.setattr(module, "load_postgres_context", lookup)
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    context.gpus.reverse()
+    context.assigned_nodes.reverse()
+    context.unresolved_failures.reverse()
+    after = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
     assert before is not None and after is not None
     assert before.cache_fingerprint == after.cache_fingerprint

@@ -252,3 +252,92 @@ async def test_a_rate_limited_miss_never_calls_gemini_or_caches(monkeypatch) -> 
     
     assert analyst.calls == 0
     assert await read_cached_analysis(redis, fingerprint) is None
+
+
+@pytest.mark.parametrize("change,hit", [
+    ("gpu_health", False), ("node_health", False), ("failure", False),
+    ("resolution", False), ("assignment", False), ("correlation", False),
+    ("metric", True), ("unrelated", True),
+])
+async def test_database_evidence_changes_control_cache_reuse(session, change, hit):
+    from datetime import UTC, datetime
+
+    from sqlalchemy import delete, update
+
+    from test_ai_fingerprint import seed
+    from test_ai_postgres_source import add_node, failure
+    from videre.backend.ai.fingerprint import load_fingerprint
+    from videre.database.tables import FailureRecord, Gpu, JobNodeAssignment, Node
+
+    await seed(session)
+    await add_node(session, "node-other")
+    session.add(failure("direct"))
+    if change in {"resolution", "correlation"}:
+        session.add(failure("related", "node", "node-other"))
+    await session.flush()
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert before is not None
+    redis = FakeRedis()
+    await write_cached_analysis(redis, before, ANALYSIS, 420)
+    if change == "gpu_health":
+        await session.execute(update(Gpu).values(health_state="FAILED"))
+    elif change == "node_health":
+        await session.execute(update(Node).where(Node.id == "node-0").values(health_state="NOT_READY"))
+    elif change == "failure":
+        session.add(failure("new", "node", "node-other"))
+    elif change == "resolution":
+        await session.execute(update(FailureRecord).where(FailureRecord.id == "related")
+            .values(resolved_at=datetime.now(UTC)))
+    elif change == "assignment":
+        await session.execute(delete(JobNodeAssignment))
+        session.add(JobNodeAssignment(job_id="job-1", node_id="node-other"))
+    elif change == "correlation":
+        await session.execute(update(FailureRecord).where(FailureRecord.id == "related")
+            .values(correlation_id="disconnected"))
+    elif change == "metric":
+        await session.execute(update(Gpu).values(utilization_percentage=99, temperature_celsius=88))
+    else:
+        session.add(failure("unrelated", "node", "node-other", "other-incident"))
+    await session.flush()
+    after = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert after is not None
+    cached = await read_cached_analysis(redis, after)
+    assert (cached == ANALYSIS) == hit
+
+
+async def test_legacy_fingerprint_response_is_not_reused():
+    import hashlib
+    fingerprint = make_fingerprint()
+    legacy = "gpu:gpu-1-2:DEGRADED:failure-a"
+    digest = hashlib.sha256(legacy.encode()).hexdigest()[:16]
+    redis = FakeRedis()
+    redis.values[f"ai:resp:gpu:gpu-1-2:{digest}"] = ANALYSIS.model_dump_json()
+    assert await read_cached_analysis(redis, fingerprint) is None
+
+
+async def test_scheduler_cap_changes_keep_the_cached_diagnosis(session):
+    from test_ai_fingerprint import seed
+    from videre.backend.ai.fingerprint import load_fingerprint
+    from videre.backend.ai.postgres_source import load_postgres_context
+    from videre.database.tables import SchedulerEventRecord
+
+    await seed(session)
+    now = datetime.now(UTC)
+    def event(index):
+        return SchedulerEventRecord(
+            id=f"scheduler-{index:02}", event_id=f"scheduler-{index:02}", type="QUEUEING_DELAY", timestamp=now,
+            related_job_id="job-1", related_node_id="node-0", delay_seconds=float(index), reason="queued",
+        )
+    session.add_all([event(index) for index in range(20)])
+    await session.flush()
+    before = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    assert before is not None
+    redis = FakeRedis()
+    await write_cached_analysis(redis, before, ANALYSIS, 420)
+    session.add(event(20))
+    await session.flush()
+    after = await load_fingerprint(session, FailureEntityTable.JOB, "job-1")
+    context = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")
+    assert after is not None and context is not None
+    assert "scheduler_events" in context.truncated_sections
+    assert await read_cached_analysis(redis, after) == ANALYSIS
