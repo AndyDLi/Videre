@@ -97,4 +97,7 @@ async def query_metrics(
         payload: dict[str, Any] = response.json()
         series.extend(summarize(query, payload))
     
-    return PrometheusContext(window_minutes=window_minutes, series=series[:MAXIMUM_SERIES])
+    return PrometheusContext(
+        scope="deployment" if entity_type is FailureEntityTable.JOB else "entity",
+        window_minutes=window_minutes, series=series[:MAXIMUM_SERIES],
+    )

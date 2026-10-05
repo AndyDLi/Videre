@@ -31,7 +31,7 @@ ratelimit:ai:global:min:<epoch_minute>
 ratelimit:ai:ip:<ip>:day:<YYYY-MM-DD>
 ratelimit:ai:ip:<ip>:min:<epoch_minute>
 
-# Cached AI response. The fingerprint combines the entity ID, health state, and unresolved failure IDs.
+# Cached AI response. The digest covers selected stable entity and related failure evidence.
 ai:resp:<entity_type>:<entity_id>:<digest>
 ```
 
@@ -42,3 +42,9 @@ ai:resp:<entity_type>:<entity_id>:<digest>
 - Never allow rate-lmiit counters to be evicted. Losing them can temporarily bypass WebSocket or AI quota enforcement.
 - The configured Redis memory limit should comfortably exceed the expected dataset size. At Videre's scale, reaching the limit is not expected. Rejecting writes is nevertheless safer than weakening quota enforcement.
 - WebSocket broadcasts wait at most 2 seconds per client. Busy clients skip refreshes without queuing them. The last snapshot is marked **Stale** at 20 seconds.
+
+## AI Evidence and Invalidation
+
+AI diagnoses include relevant failures from the requested entity, its related nodes and GPUs, and shared incidents within its cluster. Evidence is limited, and omitted details are flagged. Job metrics show overall activity; related evidence does not prove exact GPU assignment or what caused a failure.
+
+Cached diagnoses are reused for up to seven minutes. Changes to relevant health, job placement or failures make the next request generate a fresh diagnosis. Routine telemetry and scheduler updates keep the cached answer usable until it expires, avoiding repeated AI requests as measurements change.

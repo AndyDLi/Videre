@@ -1,5 +1,4 @@
 import asyncio
-from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
@@ -235,7 +234,7 @@ async def test_an_unconfigured_assistant_returns_503(session) -> None:
 
 
 @pytest.mark.parametrize("outcome", ["success", "error", "cancel"])
-async def test_fingerprint_session_closes_before_generation(outcome):
+async def test_fingerprint_session_closes_before_generation(outcome, monkeypatch):
     """Model waits never retain the route's fingerprint database session."""
     class TrackedFactory:
         active = 0
@@ -253,10 +252,20 @@ async def test_fingerprint_session_closes_before_generation(outcome):
                     owner.active -= 1
                     owner.exits += 1
 
-                async def execute(self, statement):
-                    return SimpleNamespace(one_or_none=lambda: ("NOT_READY", [None]))
 
             return Session()
+
+    from videre.backend.ai.fingerprint import EntityFingerprint
+    from videre.backend.routes import ai as ai_route
+
+    async def lookup(session, entity_type, entity_id):
+        assert factory.active == 1
+        return EntityFingerprint(
+            entity_type=entity_type, entity_id=entity_id,
+            health_state="NOT_READY", unresolved_failure_ids=(),
+        )
+
+    monkeypatch.setattr(ai_route, "load_fingerprint", lookup)
 
     started, release = asyncio.Event(), asyncio.Event()
 

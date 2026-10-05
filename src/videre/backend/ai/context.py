@@ -5,6 +5,7 @@ Combined failure context assembled from Postgres, Prometheus, and Loki.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -86,6 +87,9 @@ class PostgresContext(BaseModel):
     node: NodeStateContext | None = None
     gpus: list[GpuStateContext] = []
     job: JobStateContext | None = None
+    assigned_nodes: list[NodeStateContext] = []
+    correlated_failures: list[FailureRecordContext] = []
+    truncated_sections: list[str] = []
     unresolved_failures: list[FailureRecordContext] = []
     recently_resolved_failures: list[FailureRecordContext] = []
     scheduler_events: list[SchedulerEventContext] = []
@@ -106,6 +110,7 @@ class MetricSeriesContext(BaseModel):
 class PrometheusContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
     
+    scope: Literal["entity", "deployment"] = "entity"
     window_minutes: int
     series: list[MetricSeriesContext] = []
 

@@ -219,3 +219,12 @@ async def test_query_logs_merges_queries_newest_first_within_the_limit() -> None
         )
     assert len(handler.queries) == 2
     assert [line.line for line in context.lines] == ["newer", "newer", "older"]
+
+
+async def test_job_metric_results_are_identified_as_aggregate():
+    handler = RecordingHandler(matrix("videre_jobs_by_state", {"cluster_id": "cluster-a"}, [2.0]))
+    async with client_for(handler) as client:
+        context = await query_metrics(client, "http://prometheus", FailureEntityTable.JOB, "job-1", window_minutes=15)
+    assert context.scope == "deployment"
+    assert all("job-1" not in query for query in handler.queries)
+    assert context.series[0].labels == {"cluster_id": "cluster-a"}

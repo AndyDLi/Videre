@@ -102,3 +102,47 @@ async def test_the_entity_is_recorded_on_the_context(monkeypatch) -> None:
     patch_sources(monkeypatch)
     context = await assemble(Settings())
     assert (context.entity_type, context.entity_id) == (FailureEntityTable.GPU, "gpu-1-2")
+
+
+async def test_job_database_and_aggregate_metrics_reach_prompt(session):
+    from datetime import UTC, datetime
+
+    from httpx2 import AsyncClient, MockTransport, Response
+
+    from test_ai_fingerprint import seed
+    from test_ai_postgres_source import failure
+    from test_event_mapping import sample_job
+    from videre.backend.ai.context import FailureContext
+    from videre.backend.ai.postgres_source import load_postgres_context
+    from videre.backend.ai.prometheus_source import query_metrics
+    from videre.backend.ai.prompt import build_prompt
+    from videre.backend.persistence.event_mapping import apply_event
+    from videre.event_types import LifecycleEventType
+    from videre.events import JobEventMessage, Topic
+
+    await seed(session)
+    job = sample_job()
+    job.id, job.assigned_node_ids = "job-other", []
+    await apply_event(session, Topic.JOB_EVENTS, JobEventMessage(
+        event_type=LifecycleEventType.JOB_RUNNING.value, payload=job,
+    ))
+    gpu_fault = failure("observed-gpu-fault")
+    gpu_fault.root_cause_tag = "gpu_xid_error"
+    job_fault = failure("correlated-job-timeout", "job", "job-other")
+    job_fault.root_cause_tag = "job_timeout"
+    session.add_all([gpu_fault, job_fault])
+    await session.flush()
+    postgres = await load_postgres_context(session, FailureEntityTable.JOB, "job-1")
+    async with AsyncClient(transport=MockTransport(lambda request: Response(200, json={
+        "status": "success", "data": {"result": []},
+    }))) as client:
+        metrics = await query_metrics(client, "http://prometheus", FailureEntityTable.JOB, "job-1", window_minutes=15)
+    context = FailureContext(
+        entity_type=FailureEntityTable.JOB, entity_id="job-1", generated_at=datetime.now(UTC),
+        postgres=postgres, prometheus=metrics,
+    )
+    prompt = build_prompt(context, maximum_characters=24_000)
+    assert "observed-gpu-fault" in prompt and "gpu_xid_error" in prompt
+    assert "correlated-job-timeout" in prompt and "job_timeout" in prompt
+    assert "not per-job measurements" in prompt
+    assert len(prompt) <= 24_000

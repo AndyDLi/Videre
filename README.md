@@ -78,7 +78,8 @@ https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
 ### 🤖 AI Root-Cause Assistant
 
 - **Three-Source Context** - Database records, metric trends, and recent logs are gathered concurrently. If a data source is slow or missing, it is gracefully dropped and explicitly noted in the prompt.
-- **Fingerprint Caching** - AI responses are keyed strictly on stable state attributes, such as entity ID, health state, and unresolved failures, rather than the assembled context that would fold in noisy metric ticks.
+- **Related Failure Evidence** - Job diagnoses include assigned-node health, candidate GPU failures and shared incidents within the same cluster.
+- **Fingerprint Caching** - Selected entity and related health, placement and failure changes invalidate diagnoses. Ordinary telemetry changes use the existing 420-second cache TTL.
 - **Layered Quota Guards** - Per-minute and per-day limits, per client and globally, keep a publicly reachable endpoint inside the provider's tier.
 
 ## 🏗️ Architecture
