@@ -8,7 +8,7 @@ import { Section } from '../components/Section';
 import { StateCounts } from '../components/StateCounts';
 import { UtilizationPanel } from '../components/UtilizationPanel';
 import { formatEntityId } from '../domain/format';
-import { deriveGpuUtilization } from '../domain/utilization';
+import { deriveGpuAvailability } from '../domain/utilization';
 import { useApiResource } from '../hooks/useApiResource';
 import type { ConnectionStatus } from '../hooks/useClusterHealthStream';
 import { useClusterHealthStream } from '../hooks/useClusterHealthStream';
@@ -89,7 +89,13 @@ export function ClusterOverviewPage() {
                         <StateCounts title="Nodes" counts={snapshot.nodes_by_health_state} />
                         <StateCounts title="GPUs" counts={snapshot.gpus_by_health_state} />
                         <StateCounts title="Jobs" counts={snapshot.jobs_by_lifecycle_state} />
-                        <UtilizationPanel utilization={deriveGpuUtilization(capacity ?? [])} />
+                        <UtilizationPanel
+                            availability={deriveGpuAvailability(
+                                (capacity ?? []).filter(
+                                    (summary) => summary.cluster_id === snapshot.cluster_id,
+                                ),
+                            )}
+                        />
                     </div>
                 </div>
             ))}

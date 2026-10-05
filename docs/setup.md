@@ -254,6 +254,24 @@ For future schema/configuration changes, record these in the PR/runbook:
 
 Prepare compatible schema/configuration before merging. Apply only the named manifests; restart workloads whose environment changed. Applying the full stack can restore stale image tags. Breaking changes require a staged rollout plan.
 
+### Task 6 GPU Availability Delivery
+
+Task 6 requires no migration or policy apply; keep schema `8d7e3a9164b2`. Existing CI updates the backend before the frontend; endpoint contract tests verify forward compatibility, and deprecated aliases support the older frontend. After CI rollout, inspect `/api/capacity` for `total_gpus`, `unavailable_gpus`, `degraded_gpus`, `idle_gpus`, `active_gpus` and `queueing_delay_event_count` per cluster. For manual image updates, verify these fields after the backend rollout before updating the frontend.
+
+An operator must separately apply the Grafana copy change: CI cannot update its ConfigMap. Coordinate exclusive access and use the reviewed Task 6 checkout and administrator kubeconfig. Verify the full source SHA and cluster target before the targeted apply:
+
+```bash
+read -r -p 'Reviewed Task 6 source SHA: ' task6_source
+[[ "$task6_source" =~ ^[0-9a-f]{40}$ ]] && [ "$(git rev-parse HEAD)" = "$task6_source" ] || exit 1
+export KUBECONFIG="$HOME/.kube/config"
+kubectl config current-context
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}'
+# Stop unless the context and endpoint match the intended cluster.
+kubectl -n videre apply -f k8s/grafana/02-configmap-dashboards.yaml
+```
+
+After Grafana reloads its provisioned dashboard, verify the panel title is `GPUs Below 5% Utilization` and its description explains the observation. Queries are unchanged. Apply only this ConfigMap; do not apply the full stack.
+
 ### Verified Releases and Compatible Recovery
 
 Manifest tags describe desired images. A successful deploy job and rollout summary confirm the deployed release, including source SHA, image-tag commit, images and run link. After failure, compare desired tags, running images and the last successful release. Keep its run link and schema/configuration compatibility notes.
@@ -262,24 +280,29 @@ A verified recovery baseline is:
 
 | Checkpoint | Value |
 |---|---|
-| Source revision | `b6e9d0d8f0a3352a2202e9bdc6e6dc70697896cf` |
-| Desired-tag commit | `6dca16bd50decfa00e8e252857b57596d7d8c386` |
-| Successful deployment | [run 37182816390](https://github.com/AndyDLi/Videre/actions/runs/37182816390) |
-| Backend/simulator | `0.9.0-b6e9d0d` |
-| Frontend | `0.9.2-b6e9d0d` |
+| Source revision | `1e8b365702c591b470611260a87ee0421edbe117` |
+| Desired-tag commit | `5566a31b0c3647f2ce21a510cafbb4dfaa97c157` |
+| Successful deployment | [run 37217089029](https://github.com/AndyDLi/Videre/actions/runs/37217089029) |
+| Backend/simulator | `0.9.0-1e8b365` |
+| Frontend | `0.9.2-1e8b365` |
 | Schema | `8d7e3a9164b2` |
 
 The baseline configuration and workload template were verified with the current policies. Recheck compatibility before recovery. Keep schema `8d7e3a9164b2`; image rollback does not require removing its added columns. A v1-only backend cannot consume retained v2 events, and pre-hardening simulator images fail admission. Choose a verified compatible release, not simply an older tag.
 
-Stop competing release workflows and coordinate exclusive access. Check current images, rollouts, schema, configuration and policies against the baseline. If incompatible, use the failed release's recovery plan. Otherwise restore these images in order:
+Stop competing release workflows and coordinate exclusive access. Check current images, rollouts, schema, configuration and policies against the baseline. If incompatible, use the failed release's recovery plan. Backend-first recovery is safe only when the frontend supports the target API. This baseline predates Task 6: restore and verify its old frontend before its old backend, because the new frontend requires the new category fields. Frontend-only recovery may keep the new backend.
 
 ```bash
-kubectl -n videre set image deployment/backend backend=ghcr.io/andydli/videre-backend:0.9.0-b6e9d0d
-kubectl -n videre rollout status deployment/backend --timeout=180s
-kubectl -n videre set image deployment/simulator simulator=ghcr.io/andydli/videre-simulator:0.9.0-b6e9d0d
-kubectl -n videre rollout status deployment/simulator --timeout=180s
-kubectl -n videre set image deployment/frontend frontend=ghcr.io/andydli/videre-frontend:0.9.2-b6e9d0d
+kubectl -n videre set image deployment/frontend frontend=ghcr.io/andydli/videre-frontend:0.9.2-1e8b365
 kubectl -n videre rollout status deployment/frontend --timeout=180s
+```
+
+Verify the old frontend loads and its overview/capacity views work against the current backend before continuing:
+
+```bash
+kubectl -n videre set image deployment/backend backend=ghcr.io/andydli/videre-backend:0.9.0-1e8b365
+kubectl -n videre rollout status deployment/backend --timeout=180s
+kubectl -n videre set image deployment/simulator simulator=ghcr.io/andydli/videre-simulator:0.9.0-1e8b365
+kubectl -n videre rollout status deployment/simulator --timeout=180s
 kubectl -n videre get deployments -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[*].image,READY:.status.readyReplicas
 ```
 

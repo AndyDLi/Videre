@@ -66,7 +66,7 @@ https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
 ### 🔎 Failure and Capacity Analysis
 
 - **Root-Cause Records** - Every recorded failure includes its category, a root-cause tag, and a correlation ID tying it back to the original trigger.
-- **Capacity Bottlenecks** - Six distinct metrics expose where usable capacity is lost: unavailable GPUs, reserved-but-idle GPUs, fragmentation delays, queued jobs, and drained or cordoned nodes.
+- **GPU Availability and Capacity** - Reported node/GPU health and utilization split GPUs into unavailable for new work, degraded, healthy idle, and healthy active. Pending jobs, draining/cordoned nodes, and recent queueing-delay events provide separate capacity indicators.
 - **Entity Drill-Down** - Any node, GPU, or job can be expanded to reveal its current state, historical failures, and metric trends.
 
 ### 📊 Observability Pipeline

@@ -171,13 +171,18 @@ def test_capacity_fragmentation_emits_queueing_delay() -> None:
 
 
 def test_capacity_reserved_idle_emits_placement_event() -> None:
-    """Reserved-but-idle capacity surfaces as a placement scheduler event."""
+    """The legacy idle-capacity scenario retains its placement message and correlation."""
 
     state = build_cluster_state()
     result = generate(state, fired_event(EventType.CAPACITY_RESERVED_IDLE), Random(0))
     assert result is not None
     assert result.topic is Topic.SCHEDULER_EVENTS
+    assert result.key == "node-0"
+    assert result.message.event_type == "capacity.reserved_idle"
+    assert result.message.correlation_id == "correlation-1"
     assert result.message.payload.type is SchedulerEventType.PLACEMENT
+    assert result.message.payload.node_id == "node-0"
+    assert result.message.payload.reason == "simulated idle-capacity signal"
 
 
 def test_node_drained_generator_marks_node_draining() -> None:
