@@ -27,7 +27,6 @@ from ..dependencies import (
     GeminiAnalystDependency,
     HttpClientDependency,
     RedisDependency,
-    SessionDependency,
     SessionFactoryDependency,
     SettingsDependency,
 )
@@ -81,7 +80,6 @@ def _log(
 async def analyze(
     payload: AnalysisRequest,
     request: Request,
-    session: SessionDependency,
     session_factory: SessionFactoryDependency,
     redis_client: RedisDependency,
     http_client: HttpClientDependency,
@@ -91,7 +89,8 @@ async def analyze(
     started = time.perf_counter()
     client = client_identifier(request)
     
-    fingerprint = await load_fingerprint(session, payload.entity_type, payload.entity_id)
+    async with session_factory() as session:
+        fingerprint = await load_fingerprint(session, payload.entity_type, payload.entity_id)
     if fingerprint is None:
         _log(payload, client, started, "not_found")
         raise HTTPException(

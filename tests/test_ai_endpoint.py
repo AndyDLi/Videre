@@ -1,3 +1,6 @@
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 import pytest_asyncio
 from httpx2 import ASGITransport, AsyncClient
@@ -17,7 +20,6 @@ from videre.backend.dependencies import (
     get_gemini_analyst,
     get_http_client,
     get_redis,
-    get_session,
     get_session_factory,
 )
 from videre.backend.persistence.event_mapping import apply_event
@@ -71,7 +73,6 @@ async def seed(session) -> None:
 def build_client(session, analyst, settings=None):
     application = create_application(settings or Settings())
     redis_client = FakeRedis()
-    application.dependency_overrides[get_session] = lambda: session
     application.dependency_overrides[get_session_factory] = lambda: SingleSessionFactory(session)
     application.dependency_overrides[get_redis] = lambda: redis_client
     application.dependency_overrides[get_http_client] = lambda: None
@@ -231,3 +232,62 @@ async def test_an_unconfigured_assistant_returns_503(session) -> None:
         response = await async_client.post("/ai/analyze", json=request_body())
     
     assert response.status_code == 503
+
+
+@pytest.mark.parametrize("outcome", ["success", "error", "cancel"])
+async def test_fingerprint_session_closes_before_generation(outcome):
+    """Model waits never retain the route's fingerprint database session."""
+    class TrackedFactory:
+        active = 0
+        exits = 0
+
+        def __call__(self):
+            owner = self
+
+            class Session:
+                async def __aenter__(self):
+                    owner.active += 1
+                    return self
+
+                async def __aexit__(self, *args):
+                    owner.active -= 1
+                    owner.exits += 1
+
+                async def execute(self, statement):
+                    return SimpleNamespace(one_or_none=lambda: ("NOT_READY", [None]))
+
+            return Session()
+
+    started, release = asyncio.Event(), asyncio.Event()
+
+    class BlockedAnalyst:
+        async def analyze(self, context):
+            started.set()
+            await release.wait()
+            if outcome == "error":
+                raise GeminiUnavailableError("test provider failure")
+            return ANALYSIS
+
+    factory = TrackedFactory()
+    application = create_application(Settings())
+    application.state.session_factory = factory
+    application.state.gemini_analyst = BlockedAnalyst()
+    application.state.redis_client = FakeRedis()
+    application.state.http_client = None
+    async with AsyncClient(transport=ASGITransport(app=application), base_url="http://test") as client:
+        task = asyncio.create_task(client.post("/ai/analyze", json=request_body()))
+        try:
+            await asyncio.wait_for(started.wait(), 1)
+            assert factory.active == 0 and factory.exits == 1
+            if outcome == "cancel":
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+            else:
+                release.set()
+                response = await task
+                assert response.status_code == (200 if outcome == "success" else 503)
+        finally:
+            release.set()
+            await asyncio.gather(task, return_exceptions=True)
+        assert factory.active == 0 and factory.exits == 1
