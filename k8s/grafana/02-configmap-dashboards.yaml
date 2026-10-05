@@ -220,6 +220,7 @@ data:
           "id": 1,
           "type": "timeseries",
           "title": "Failure Events per Minute by Category",
+          "description": "Processed failure/error/capacity events per minute using a ten-minute rate window, shown over the selected range. History is retained for three days; replays may increment counters again. These are not unique GPUs/jobs or capacity lost.",
           "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -245,6 +246,7 @@ data:
           "id": 2,
           "type": "bargauge",
           "title": "Job Failures by Mode",
+          "description": "Processed job-failure events over the selected time range. History is retained for three days; replays may increment counters again. This is not a unique-job count or capacity lost.",
           "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -266,6 +268,7 @@ data:
           "id": 3,
           "type": "bargauge",
           "title": "GPU Errors by Type",
+          "description": "Processed GPU-error events over the selected time range. History is retained for three days; replays may increment counters again. This is not a unique-GPU count or capacity lost.",
           "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -287,6 +290,7 @@ data:
           "id": 4,
           "type": "bargauge",
           "title": "Node Failures by Mode",
+          "description": "Processed node-failure events over the selected time range. History is retained for three days; replays may increment counters again. This is not a unique-node count or capacity lost.",
           "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -341,7 +345,8 @@ data:
         {
           "id": 6,
           "type": "stat",
-          "title": "Reserved-but-Idle GPUs (Below 5% Utilization)",
+          "title": "GPUs Below 5% Utilization",
+          "description": "Counts GPUs with measured utilization below 5%. This observation does not establish GPU health, new-work availability or reservations.",
           "gridPos": { "h": 5, "w": 8, "x": 8, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
@@ -358,6 +363,7 @@ data:
           "id": 7,
           "type": "stat",
           "title": "Capacity Events in Range",
+          "description": "Processed capacity-scenario events over the selected time range. History is retained for three days; replays may increment counters again. This is not a unique-GPU/job count or capacity lost.",
           "gridPos": { "h": 5, "w": 8, "x": 16, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [

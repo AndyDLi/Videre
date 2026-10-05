@@ -95,11 +95,13 @@ export interface CapacitySummary {
     cluster_id: string;
     total_gpus: number;
     unavailable_gpus: number;
-    idle_reserved_gpus: number;
+    degraded_gpus: number;
+    idle_gpus: number;
+    active_gpus: number;
     drained_node_count: number;
     unschedulable_node_count: number;
     queued_job_count: number;
-    fragmentation_event_count: number;
+    queueing_delay_event_count: number;
 }
 
 export interface AnalysisRequest {

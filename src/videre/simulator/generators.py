@@ -229,7 +229,7 @@ def generate_capacity_reserved_idle(
         id=str(uuid4()),
         type=SchedulerEventType.PLACEMENT,
         node_id=event.target.node_id,
-        reason="reserved-but-idle GPUs reducing usable capacity",
+        reason="simulated idle-capacity signal",
     )
     return make_scheduler_message(event.event_type.value, event.correlation_id, scheduler_event)
 

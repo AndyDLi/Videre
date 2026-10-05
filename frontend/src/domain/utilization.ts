@@ -1,14 +1,14 @@
 import type { CapacitySummary } from '../api/types';
 
-export interface GpuUtilization {
+export interface GpuAvailability {
     totalGpus: number;
-    inUseGpus: number;
     unavailableGpus: number;
-    idleReservedGpus: number;
-    inUsePercentage: number;
+    degradedGpus: number;
+    idleGpus: number;
+    activeGpus: number;
 }
 
-export function deriveGpuUtilization(summaries: CapacitySummary[]): GpuUtilization | null {
+export function deriveGpuAvailability(summaries: CapacitySummary[]): GpuAvailability | null {
     const totalGpus = summaries.reduce((total, summary) => total + summary.total_gpus, 0);
     if (totalGpus === 0) {
         return null;
@@ -18,17 +18,15 @@ export function deriveGpuUtilization(summaries: CapacitySummary[]): GpuUtilizati
         (total, summary) => total + summary.unavailable_gpus,
         0,
     );
-    const idleReservedGpus = summaries.reduce(
-        (total, summary) => total + summary.idle_reserved_gpus,
-        0,
-    );
-    const inUseGpus = Math.max(totalGpus - unavailableGpus - idleReservedGpus, 0);
+    const degradedGpus = summaries.reduce((total, summary) => total + summary.degraded_gpus, 0);
+    const idleGpus = summaries.reduce((total, summary) => total + summary.idle_gpus, 0);
+    const activeGpus = summaries.reduce((total, summary) => total + summary.active_gpus, 0);
 
     return {
         totalGpus,
-        inUseGpus,
         unavailableGpus,
-        idleReservedGpus,
-        inUsePercentage: Math.round((inUseGpus / totalGpus) * 100),
+        degradedGpus,
+        idleGpus,
+        activeGpus,
     };
 }

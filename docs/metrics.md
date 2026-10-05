@@ -27,7 +27,7 @@ Events rejected as stale, legacy-after-boundary, or conflicting runs update no m
 | `videre_job_failures_total` | Counter | `failure_mode` | Job-level failure events |
 | `videre_gpu_error_events_total` | Counter | `node_id`, `gpu_id`, `error_type` | GPU error events |
 | `videre_node_failure_events_total` | Counter | `node_id`, `failure_mode` | Node-level failure events |
-| `videre_capacity_events_total` | Counter | `event_type` | Capacity-loss events |
+| `videre_capacity_events_total` | Counter | `event_type` | Processed capacity-scenario events |
 
 - `state` values are the `NodeHealthState`, `GpuHealthState`, and `JobState` enums.
 - `failure_mode`, `error_type`, and `event_type` values are `EventType` members and are grouped by the topic they arrive on:
@@ -38,6 +38,25 @@ Events rejected as stale, legacy-after-boundary, or conflicting runs update no m
 | gpu | `gpu.thermal_throttling`, `gpu.ecc_uncorrectable`, `gpu.xid_error`, `gpu.nvlink_degraded`, `gpu.driver_crash` |
 | job | `job.oom_kill`, `job.nccl_timeout`, `job.straggler`, `job.checkpoint_corrupt`, `job.preempted` |
 | capacity | `capacity.fragmentation`, `capacity.reserved_idle` |
+
+## GPU Availability and Capacity Counts
+
+`GET /capacity` classifies each tracked GPU once, using its last-reported node health, GPU health and utilization:
+
+| Category | Rule, in precedence order |
+|---|---|
+| Unavailable for new work | Node is NOT_READY, DRAINING or CORDONED, or GPU is FAILED. |
+| Degraded | READY node and DEGRADED or THROTTLING GPU, at any utilization. |
+| Healthy idle | READY node and HEALTHY GPU below 5% utilization. |
+| Healthy active | READY node and HEALTHY GPU at least 5% utilized. |
+
+`unavailable_gpus + degraded_gpus + idle_gpus + active_gpus = total_gpus` per cluster. CORDONED nodes can still run existing work. These observations do not guarantee placement or fresh telemetry. Raw GPU-health snapshots remain a separate view. Node-level job assignments provide no per-GPU allocation or reservation evidence.
+
+`queued_job_count`, `drained_node_count` and `unschedulable_node_count` count current PENDING jobs, DRAINING nodes and CORDONED nodes. `queueing_delay_event_count` counts stored QUEUEING_DELAY records linked to a node in that cluster, from the inclusive rolling three-day cutoff through the captured current time; future records are excluded. Repeated delays on one node count separately. This is neither a distinct entity count nor proof of fragmentation or capacity lost.
+
+The deprecated wire aliases `idle_reserved_gpus` and `fragmentation_event_count` equal `idle_gpus` and `queueing_delay_event_count`, respectively, for older clients. Their names do not establish reservations or fragmentation. The legacy `capacity.reserved_idle` event identifier represents a simulated scenario; it still emits PLACEMENT with reason `simulated idle-capacity signal`, without tracked reservation state.
+
+Grafana's GPU count below 5% uses measured utilization alone; it does not establish health, new-work availability or reservations. Historical failure/error/capacity charts use Prometheus processing-counter increases over the selected range, with three-day history retention and possible replay increments. They do not count unique GPUs/jobs or lost capacity. The events-per-minute chart uses a ten-minute rate window. Keep those historical counts separate from current-state counts and the API's node-linked stored delay records.
 
 ## HTTP Service Metrics
 

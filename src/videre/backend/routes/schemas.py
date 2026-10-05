@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GpuResponse(BaseModel):
@@ -80,9 +80,17 @@ class CapacityResponse(BaseModel):
 
     cluster_id: str
     total_gpus: int
-    unavailable_gpus: int
-    idle_reserved_gpus: int
+    unavailable_gpus: int = Field(description="GPU FAILED or node not READY; unavailable for new work.")
+    degraded_gpus: int = Field(description="DEGRADED or THROTTLING GPUs on READY nodes.")
+    idle_gpus: int = Field(description="HEALTHY GPUs on READY nodes with utilization below 5%.")
+    active_gpus: int = Field(description="HEALTHY GPUs on READY nodes with utilization at least 5%.")
+    idle_reserved_gpus: int = Field(
+        deprecated=True, description="Compatibility alias for idle_gpus; no reservation evidence.",
+    )
     drained_node_count: int
     unschedulable_node_count: int
     queued_job_count: int
-    fragmentation_event_count: int
+    queueing_delay_event_count: int = Field(description="Node-linked QUEUEING_DELAY records over the last 3 days.")
+    fragmentation_event_count: int = Field(
+        deprecated=True, description="Compatibility alias for queueing_delay_event_count.",
+    )

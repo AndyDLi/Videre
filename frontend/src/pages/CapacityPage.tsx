@@ -7,7 +7,7 @@ import { HealthBadge } from '../components/HealthBadge';
 import { LoadingOrError } from '../components/LoadingOrError';
 import { PageHeading } from '../components/PageHeading';
 import { Section } from '../components/Section';
-import { bottlenecksByImpact } from '../domain/capacityBottlenecks';
+import { capacityIndicators } from '../domain/capacityBottlenecks';
 import { formatEntityId } from '../domain/format';
 import { useApiResource } from '../hooks/useApiResource';
 
@@ -64,7 +64,7 @@ export function CapacityPage() {
             <PageHeading
                 eyebrow="Where Capacity Goes"
                 title="Capacity Bottlenecks"
-                description="Ranked by how much capacity each one is costing."
+                description="Last-reported GPU availability, current job and node counts, and queueing-delay events from the last 3 days."
             />
 
             {summaries.map((summary) => (
@@ -79,19 +79,19 @@ export function CapacityPage() {
                     <div className="mt-8">
                         <Section>
                             <ul className="divide-y divide-border-subtle border-b border-border-subtle">
-                                {bottlenecksByImpact(summary).map((bottleneck) => (
+                                {capacityIndicators(summary).map((indicator) => (
                                     <li
-                                        key={bottleneck.label}
+                                        key={indicator.label}
                                         className="flex flex-wrap items-baseline gap-x-5 gap-y-1 py-5"
                                     >
                                         <span className="metric w-16 shrink-0 text-4xl">
-                                            {bottleneck.count}
+                                            {indicator.count}
                                         </span>
                                         <span className="font-display text-lg text-text-primary">
-                                            {bottleneck.label}
+                                            {indicator.label}
                                         </span>
                                         <span className="text-sm text-text-muted">
-                                            {bottleneck.description}
+                                            {indicator.description}
                                         </span>
                                     </li>
                                 ))}
