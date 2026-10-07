@@ -293,6 +293,7 @@ CI updates images only. Apply schema and configuration changes manually from the
 | [docs/materialization.md](docs/materialization.md) | How simulated jobs translate to real Pods with real kernel-level faults. |
 | [docs/kafka-schemas.md](docs/kafka-schemas.md) | Message envelopes, topics, and strict partition keys. |
 | [docs/metrics.md](docs/metrics.md) | A complete reference of every metric and its labels. |
+| [docs/load-testing.md](docs/load-testing.md) | Fixed-RPS benchmark commands, results and measurement limits. |
 | [docs/redis-keys.md](docs/redis-keys.md) | Key namespaces, TTLs, and collision prevention rules. |
 | [docs/ports.md](docs/ports.md) | Every internal cluster and external host port mapping. |
 | [.github/workflows/self-hosted.md](.github/workflows/self-hosted.md) | Runner rationale and least-privilege permission bounding. |

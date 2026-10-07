@@ -1,0 +1,3243 @@
+{
+  "purpose": "Measure fixed-workload successful request throughput within preselected latency targets; no optimization or live provider generation.",
+  "environment": {
+    "kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "dataset": {
+      "nodes": 4,
+      "gpus": 32,
+      "jobs": 1000,
+      "running": 24,
+      "pending": 8,
+      "completed": 968,
+      "unresolved_failures": 1,
+      "cached_analysis": "node-0"
+    },
+    "storage": "PostgreSQL tmpfs; Redis persistence disabled",
+    "excluded": [
+      "Kafka ingestion",
+      "WebSocket delivery",
+      "retention",
+      "AI provider calls",
+      "Prometheus/Loki retrieval"
+    ],
+    "shared_host": "Docker Desktop and native k6 share the 4-CPU/8-GiB WSL2 host; normal k3s deployment remains running",
+    "k6_version": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
+    "runtime_packages": {
+      "SQLAlchemy": "2.0.51",
+      "asyncpg": "0.31.0",
+      "fastapi": "0.140.0",
+      "redis": "8.0.1",
+      "prometheus-client": "0.26.0",
+      "uvicorn": "0.51.0",
+      "httpx2": "2.9.1"
+    },
+    "images": [
+      {
+        "RepoTags": [
+          "ghcr.io/andydli/videre-backend:0.9.0"
+        ],
+        "RepoDigests": [
+          "ghcr.io/andydli/videre-backend@sha256:679216e8fbc4ddaa246f68f969623891c5b28ec358d695de965f4ca1c3101aa9"
+        ],
+        "Id": "sha256:679216e8fbc4ddaa246f68f969623891c5b28ec358d695de965f4ca1c3101aa9"
+      },
+      {
+        "RepoTags": [
+          "postgres:17.10-bookworm"
+        ],
+        "RepoDigests": [
+          "postgres@sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f"
+        ],
+        "Id": "sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f"
+      },
+      {
+        "RepoTags": [
+          "redis:8.8.0-alpine"
+        ],
+        "RepoDigests": [
+          "redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005"
+        ],
+        "Id": "sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005"
+      },
+      {
+        "RepoTags": [
+          "grafana/k6@sha256:98305727d160c065e1da695619c40ea4becbc3e116a3842da2d6027970e428c2"
+        ],
+        "RepoDigests": [
+          "grafana/k6@sha256:98305727d160c065e1da695619c40ea4becbc3e116a3842da2d6027970e428c2"
+        ],
+        "Id": "sha256:98305727d160c065e1da695619c40ea4becbc3e116a3842da2d6027970e428c2"
+      }
+    ],
+    "background_activity": "Normal k3s demo remains running; correctness tests and other benchmark generators stopped before this series."
+  },
+  "source": {
+    "backend_source_sha256": "8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+    "fixture_sha256": "9304ac3f59790e5f20157ddcc631f92f794b69eb05030b44c026074743ad3562",
+    "head": "bf2048e5c5c81f562c957d2c5777e219861bf00c",
+    "file_sha256": {
+      "scripts/k6-requests.js": "55dcb8a2a3aaa01deb2acb7e30ef6ece697e12ffcea4109dc21b3307759047be",
+      "scripts/record-load.py": "5d3d34b9c22b66496501ccfd4c41c50091e6d2f8f08355b8f62ad9e84ecd93a6"
+    },
+    "working_tree_modified": true
+  },
+  "containers": {
+    "videre-rps-backend": {
+      "id": "7744201114ac925b2d9f021b7d45d068a4a6fbdd74b363ba3780b561e6aa6140",
+      "image_id": "sha256:679216e8fbc4ddaa246f68f969623891c5b28ec358d695de965f4ca1c3101aa9",
+      "image": "ghcr.io/andydli/videre-backend:0.9.0",
+      "resources": {
+        "Memory": 402653184,
+        "MemorySwap": 805306368,
+        "NanoCpus": 500000000,
+        "CpuQuota": 0,
+        "CpuPeriod": 0,
+        "CpusetCpus": "",
+        "CpuShares": 0
+      },
+      "image_revision": null
+    },
+    "videre-rps-postgres": {
+      "id": "37465c89879dbd7b503f0b36695a582f862b952dfff4e3e08dc576e33946a4ff",
+      "image_id": "sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f",
+      "image": "postgres:17.10-bookworm",
+      "resources": {
+        "Memory": 536870912,
+        "MemorySwap": 1073741824,
+        "NanoCpus": 1000000000,
+        "CpuQuota": 0,
+        "CpuPeriod": 0,
+        "CpusetCpus": "",
+        "CpuShares": 0
+      },
+      "image_revision": null
+    },
+    "videre-rps-redis": {
+      "id": "a9b3e27b5acc8cc4545e758ebf2f2b0556b86cb54b697276457287ec7472b278",
+      "image_id": "sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005",
+      "image": "redis:8.8.0-alpine",
+      "resources": {
+        "Memory": 268435456,
+        "MemorySwap": 536870912,
+        "NanoCpus": 500000000,
+        "CpuQuota": 0,
+        "CpuPeriod": 0,
+        "CpusetCpus": "",
+        "CpuShares": 0
+      },
+      "image_revision": null
+    }
+  },
+  "workload": {
+    "route_weights": {
+      "capacity": 0.2,
+      "nodes": 0.2,
+      "jobs": 0.2,
+      "node_detail": 0.2,
+      "ai_cached": 0.2
+    },
+    "request_per_iteration": 1,
+    "measured_seconds": 300,
+    "separate_warmup_seconds": 20,
+    "warmup_rps": 5,
+    "cache_ttl_seconds": 420,
+    "max_vus": 100,
+    "target": "Direct loopback HTTP; excludes Traefik, TLS, Funnel and frontend rendering."
+  },
+  "frozen_targets": {
+    "frozen_at": "2026-10-06T16:23:24.705793+00:00",
+    "p95_ms": 100,
+    "p99_ms": 250,
+    "applies_to": "Each of the five routes independently",
+    "errors": 0,
+    "dropped_iterations": 0,
+    "request_count_tolerance": 1,
+    "memory_safeguard_fraction": 0.9,
+    "host_cpu_inconclusive_fraction": 0.95,
+    "generator_cpu_inconclusive_fraction_of_available_cores": 0.9,
+    "reason": "Both 5 RPS baselines have worst-route p95 below 19 ms and p99 below 31 ms. These fixed local interactive API targets allow scheduling variance while keeping tails below 250 ms; they are not a production SLA.",
+    "baseline_report_sha256": {
+      "rps-verified-5-a": "3e6f27da11c5c9fd9b104a845ff3003f79011c6a863b6917bd5a73f8be2a01d8",
+      "rps-verified-5-b": "0821e877186f587d5fb592807446c20be6e6ea887bef9b3e9e3f61f56df32d45"
+    },
+    "workload_sha256": "55dcb8a2a3aaa01deb2acb7e30ef6ece697e12ffcea4109dc21b3307759047be"
+  },
+  "units_and_limits": {
+    "route_latency": "milliseconds, measured k6 percentiles",
+    "service_latency": "seconds, interval means and interpolated histogram percentile estimates; includes client/backend scheduling",
+    "resources": "CPU cores and bytes; mean/sample maxima from five-second samples",
+    "pool_occupancy": "sampled maximum, not instantaneous peak",
+    "query_totals": "Includes normal five-second cache refresh",
+    "cache_hits": "Preloaded synthetic analysis; enforced hits do not estimate organic hit rate",
+    "capacity": "Five-minute shared-host private-fixture observations; not live-cluster or long-duration capacity",
+    "historical_ai_generation": "Old 6.5-second generation figure was not verified and supports no speedup claim"
+  },
+  "runs": [
+    {
+      "run": "rps-verified-idle",
+      "status": "idle_reference",
+      "interval": {
+        "start": "2026-10-06T16:09:50.396662+00:00",
+        "end": "2026-10-06T16:11:50.693967+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 5,
+        "duration_seconds": 120,
+        "node_id": null,
+        "ai_entity_type": null,
+        "ai_entity_id": null,
+        "max_vus": 100,
+        "p95_ms": null,
+        "p99_ms": null,
+        "idle": true
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": null,
+        "successful_rps": null,
+        "counts": null,
+        "routes": null,
+        "check_failure_rate": null,
+        "http_failure_rate": null
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 120.0,
+            "mean": 0.00020706556669362422,
+            "p95_bucket_estimate": 0.0026,
+            "p99_bucket_estimate": 0.004519999999999999,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 120.0,
+            "mean": 0.0003596319499896102,
+            "p95_bucket_estimate": 0.0009661016949152543,
+            "p99_bucket_estimate": 0.0025999999999999947,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [
+          "videre_ai_cache_get_seconds",
+          "videre_ai_cache_reads_total"
+        ],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 0.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 1133346,
+            "user_usec": 809338,
+            "system_usec": 324007,
+            "nr_periods": 502,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 811811,
+            "user_usec": 496304,
+            "system_usec": 315508,
+            "nr_periods": 123,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 971227,
+            "user_usec": 591810,
+            "system_usec": 379417,
+            "nr_periods": 445,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.0042250000000000005,
+          "cpu_cores_sample_max": 0.0088,
+          "memory_bytes_sample_max": 131701145.6
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.0009,
+          "cpu_cores_sample_max": 0.0044,
+          "memory_bytes_sample_max": 143235481.6
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0020041666666666667,
+          "cpu_cores_sample_max": 0.0028000000000000004,
+          "memory_bytes_sample_max": 7393509.376
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0,
+        "rss_bytes_sample_max": 0
+      },
+      "host_cpu_busy_sample_max": 0.20130522088353414,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "da92dc22b57f66a2c1c27823070f8154524ea8af269eb1a4788c9989562ec280",
+        "backend-before.prom": "c37e27ad49b2e227d7dcd971be83c894ddb24033f5e08d6e106e302ee2f9ee0a",
+        "environment.json": "d686ba89970040277fd2d42ce1ccc29e91ea705c259797feeb20f93458a1e35d",
+        "k6-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "report.json": "5917805c4b34d210e4da2ec265881a00c0803a2fe35ee82a831acc6c11af1ae3",
+        "samples.jsonl": "806ef79e7fbd5145c3a925addb5a53f1e3f516e3b4924f21fb5a764125a2e1d4"
+      },
+      "resource_sample_count": 24
+    },
+    {
+      "run": "rps-verified-5-a",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:12:14.872573+00:00",
+        "end": "2026-10-06T16:17:16.693424+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 5,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": null,
+        "p99_ms": null,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 5.003333333333333,
+        "counts": {
+          "expected_iterations": 1500,
+          "started_iterations": 1501,
+          "completed_iterations": 1501,
+          "iterations": 1501,
+          "http_requests": 1501,
+          "successful_requests": 1501,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 6.762392,
+              "p(95)": 18.442577,
+              "p(99)": 25.070799,
+              "max": 37.528752
+            },
+            "successful_requests": 301,
+            "successful_rps": 1.0033333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 4.462892500000001,
+              "p(95)": 8.400890350000003,
+              "p(99)": 14.21832024999993,
+              "max": 27.201241
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "jobs": {
+            "duration_ms": {
+              "p(99)": 11.120203869999994,
+              "max": 28.166279,
+              "med": 4.5665495,
+              "p(95)": 8.30826245
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 4.061345,
+              "p(95)": 6.986693050000005,
+              "p(99)": 13.452624679999992,
+              "max": 16.950587
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "max": 136.791522,
+              "med": 9.350340500000001,
+              "p(95)": 16.621616500000002,
+              "p(99)": 30.642253189999984
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 300.0,
+            "mean": 0.00040260869668600207,
+            "p95_bucket_estimate": 0.0009595959595959597,
+            "p99_bucket_estimate": 0.001,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5711.0,
+            "mean": 0.0002698230252226154,
+            "p95_bucket_estimate": 0.0021713541666666647,
+            "p99_bucket_estimate": 0.004550937500000004,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5711.0,
+            "mean": 0.0004184346245903641,
+            "p95_bucket_estimate": 0.0009862661334302854,
+            "p99_bucket_estimate": 0.004104365482233509,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 300.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 0.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 9890922,
+            "user_usec": 8039624,
+            "system_usec": 1851297,
+            "nr_periods": 3018,
+            "nr_throttled": 1,
+            "throttled_usec": 48527,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 3089503,
+            "user_usec": 1924216,
+            "system_usec": 1165287,
+            "nr_periods": 1896,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2420930,
+            "user_usec": 1505494,
+            "system_usec": 915436,
+            "nr_periods": 1154,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.027004918032786884,
+          "cpu_cores_sample_max": 0.0437,
+          "memory_bytes_sample_max": 139880038.4
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.004339344262295082,
+          "cpu_cores_sample_max": 0.015600000000000001,
+          "memory_bytes_sample_max": 146590924.8
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0020327868852459017,
+          "cpu_cores_sample_max": 0.0032,
+          "memory_bytes_sample_max": 7532969.984
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.017999983926012465,
+        "rss_bytes_sample_max": 47972352
+      },
+      "host_cpu_busy_sample_max": 0.2110831234256927,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "03abd2da6e1c7559494fc5183e2ce797ffd66fcc62b50e99e3ca185367e2ee02",
+        "backend-before.prom": "0d74f5154e294609639c3224b5d241d7ac2a1da334406bba42042f2abdb12da1",
+        "environment.json": "60b33bebf4b2273afc0ad144271dc603db36d9867266c1298f82dbcb483dd486",
+        "k6-stdout.log": "2223629859ebe85b77f7354f46000c968f7d422c2b8ff2aeeb6d5f8ab5ea70a5",
+        "k6-summary.json": "76fec9279d9f59cd915678fa2a225a2d0f2fbf096394833c05faaebdf363207a",
+        "report.json": "3e6f27da11c5c9fd9b104a845ff3003f79011c6a863b6917bd5a73f8be2a01d8",
+        "samples.jsonl": "f12bef25b10ae0895e7c6e09b75f99bcaeff4157f5499514b769fc266f391e93"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-5-b",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:17:41.065625+00:00",
+        "end": "2026-10-06T16:22:42.805617+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 5,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": null,
+        "p99_ms": null,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 5.003333333333333,
+        "counts": {
+          "expected_iterations": 1500,
+          "started_iterations": 1501,
+          "completed_iterations": 1501,
+          "iterations": 1501,
+          "http_requests": 1501,
+          "successful_requests": 1501,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "p(95)": 13.026461,
+              "p(99)": 22.184466,
+              "max": 25.556526,
+              "med": 6.678523
+            },
+            "successful_requests": 301,
+            "successful_rps": 1.0033333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "p(99)": 13.303158039999996,
+              "max": 31.744329,
+              "med": 4.352691500000001,
+              "p(95)": 7.581539800000001
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.575959,
+              "p(95)": 8.916223050000005,
+              "p(99)": 16.60435642999999,
+              "max": 19.861629
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "node_detail": {
+            "duration_ms": {
+              "p(99)": 9.980570039999986,
+              "max": 19.036723,
+              "med": 4.167901,
+              "p(95)": 6.298676200000005
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "max": 26.919622,
+              "med": 9.372107499999998,
+              "p(95)": 14.449724050000002,
+              "p(99)": 18.952423099999972
+            },
+            "successful_requests": 300,
+            "successful_rps": 1
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 300.0,
+            "mean": 0.000486074486649765,
+            "p95_bucket_estimate": 0.0009661016949152544,
+            "p99_bucket_estimate": 0.0036666666666666666,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5706.0,
+            "mean": 0.0002510517981003603,
+            "p95_bucket_estimate": 0.002072584856396865,
+            "p99_bucket_estimate": 0.0044562924281984296,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5706.0,
+            "mean": 0.0003984392909299854,
+            "p95_bucket_estimate": 0.0009839716827010347,
+            "p99_bucket_estimate": 0.003977446808510629,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 300.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 0.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 9641408,
+            "user_usec": 7974140,
+            "system_usec": 1667267,
+            "nr_periods": 3017,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 3023333,
+            "user_usec": 1842128,
+            "system_usec": 1181205,
+            "nr_periods": 1873,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2422178,
+            "user_usec": 1538869,
+            "system_usec": 883308,
+            "nr_periods": 1186,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.025385245901639344,
+          "cpu_cores_sample_max": 0.034300000000000004,
+          "memory_bytes_sample_max": 140718899.2
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.004134426229508196,
+          "cpu_cores_sample_max": 0.0129,
+          "memory_bytes_sample_max": 147010355.2
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.002016393442622951,
+          "cpu_cores_sample_max": 0.0051,
+          "memory_bytes_sample_max": 7532969.984
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.019989522771491477,
+        "rss_bytes_sample_max": 47673344
+      },
+      "host_cpu_busy_sample_max": 0.21119592875318066,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "9bd9c257285aa1e0518b7d8f8f36f6b35723924e6b3083919a83b956120ca8ee",
+        "backend-before.prom": "c5f18496357c234cba19d84cf606ff067d55e5520ce2a3efa470ccb55f1e2766",
+        "environment.json": "52755f723599f63eca8e2786d095b1f0b818a46658dfa2ed7fdc03f58d6071b2",
+        "k6-stdout.log": "2223629859ebe85b77f7354f46000c968f7d422c2b8ff2aeeb6d5f8ab5ea70a5",
+        "k6-summary.json": "f6b4522f0d6a95d098bfc1e3072bcafb94520db6f7f51f5258b362ac2fa509cf",
+        "report.json": "0821e877186f587d5fb592807446c20be6e6ea887bef9b3e9e3f61f56df32d45",
+        "samples.jsonl": "fd5a487e775ff11c293eaf421d37384930d091bef892d4c0c804034c99f65b99"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-10",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:23:48.872086+00:00",
+        "end": "2026-10-06T16:28:50.686687+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 10,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 10.003333333333334,
+        "counts": {
+          "expected_iterations": 3000,
+          "started_iterations": 3001,
+          "completed_iterations": 3001,
+          "iterations": 3001,
+          "http_requests": 3001,
+          "successful_requests": 3001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 6.70512,
+              "p(95)": 14.80417,
+              "p(99)": 22.662299,
+              "max": 35.842354
+            },
+            "successful_requests": 601,
+            "successful_rps": 2.0033333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 4.086399,
+              "p(95)": 7.119238249999996,
+              "p(99)": 10.154621089999997,
+              "max": 26.11229
+            },
+            "successful_requests": 600,
+            "successful_rps": 2
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.717217,
+              "p(95)": 8.237855899999996,
+              "p(99)": 12.147448059999997,
+              "max": 22.298849
+            },
+            "successful_requests": 600,
+            "successful_rps": 2
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 4.155858,
+              "p(95)": 7.349630999999997,
+              "p(99)": 12.129502829999996,
+              "max": 28.697161
+            },
+            "successful_requests": 600,
+            "successful_rps": 2
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "p(99)": 29.02748793999999,
+              "max": 83.212943,
+              "med": 9.821763,
+              "p(95)": 17.66768214999999
+            },
+            "successful_requests": 600,
+            "successful_rps": 2
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 600.0,
+            "mean": 0.00042813543837534477,
+            "p95_bucket_estimate": 0.0009743589743589745,
+            "p99_bucket_estimate": 0.0034000000000000002,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 11106.0,
+            "mean": 0.00026535101755099293,
+            "p95_bucket_estimate": 0.0020205555555555497,
+            "p99_bucket_estimate": 0.004488555555555558,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 11106.0,
+            "mean": 0.00041585445228917433,
+            "p95_bucket_estimate": 0.0009876158382476831,
+            "p99_bucket_estimate": 0.004088514851485153,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 600.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 0.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 16605662,
+            "user_usec": 14049940,
+            "system_usec": 2555721,
+            "nr_periods": 3017,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 4072860,
+            "user_usec": 2457397,
+            "system_usec": 1615463,
+            "nr_periods": 2679,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2446487,
+            "user_usec": 1486004,
+            "system_usec": 960484,
+            "nr_periods": 1197,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.04734426229508197,
+          "cpu_cores_sample_max": 0.0721,
+          "memory_bytes_sample_max": 140718899.2
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.007047540983606557,
+          "cpu_cores_sample_max": 0.0102,
+          "memory_bytes_sample_max": 146276352.0
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0021311475409836063,
+          "cpu_cores_sample_max": 0.0048,
+          "memory_bytes_sample_max": 7409238.016
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.023999151222021776,
+        "rss_bytes_sample_max": 52690944
+      },
+      "host_cpu_busy_sample_max": 0.2241902834008097,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "3b2cc29b52fb46bffccf4a98850c6af55cde969459cc4b578624ad0fbb1c2ef5",
+        "backend-before.prom": "700a7b24fb484bfaaa9a43b80733673e5c37062f0c1be3d8e478be3a173d0452",
+        "environment.json": "d0440bc9b8956eb8b235c6c84edfd3e35b8a57e3719db0ba7b8eccf1dce26792",
+        "k6-stdout.log": "aeae766c202a2d5e25360da9db30d537db90283ffe3520d1d80370c95721ab30",
+        "k6-summary.json": "1a3a82549577ab6a510636b856b50974bbad08773aa45aa3ec76ebc89aa3b137",
+        "report.json": "e332267731d7891a05913ddf6c1a0941cff64a1347a72a35e7ac2819ed998866",
+        "samples.jsonl": "4268f890cb11ae7dbb9d2eab1fb9a461f83ccad63bfc52a3d1eba19b89a8079a"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-20",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:29:14.917889+00:00",
+        "end": "2026-10-06T16:34:16.668831+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 20,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 20.003333333333334,
+        "counts": {
+          "expected_iterations": 6000,
+          "started_iterations": 6001,
+          "completed_iterations": 6001,
+          "iterations": 6001,
+          "http_requests": 6001,
+          "successful_requests": 6001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 6.673405,
+              "p(95)": 12.04956,
+              "p(99)": 19.059356,
+              "max": 132.412667
+            },
+            "successful_requests": 1201,
+            "successful_rps": 4.003333333333333
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 4.1212805,
+              "p(95)": 7.32022985,
+              "p(99)": 12.18579638,
+              "max": 32.75233
+            },
+            "successful_requests": 1200,
+            "successful_rps": 4
+          },
+          "jobs": {
+            "duration_ms": {
+              "p(95)": 8.2076963,
+              "p(99)": 15.802319859999999,
+              "max": 41.04515,
+              "med": 4.554161499999999
+            },
+            "successful_requests": 1200,
+            "successful_rps": 4
+          },
+          "node_detail": {
+            "duration_ms": {
+              "p(99)": 12.355024279999997,
+              "max": 37.473789,
+              "med": 4.326577,
+              "p(95)": 7.5215309
+            },
+            "successful_requests": 1200,
+            "successful_rps": 4
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "max": 114.61368,
+              "med": 9.6524885,
+              "p(95)": 17.388749199999996,
+              "p(99)": 27.01126598999999
+            },
+            "successful_requests": 1200,
+            "successful_rps": 4
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 1200.0,
+            "mean": 0.00044115792330861345,
+            "p95_bucket_estimate": 0.0009768637532133677,
+            "p99_bucket_estimate": 0.003625,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 21911.0,
+            "mean": 0.00026122626506635513,
+            "p95_bucket_estimate": 0.0019580691642651317,
+            "p99_bucket_estimate": 0.004483832853025935,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 21911.0,
+            "mean": 0.0004024499427782235,
+            "p95_bucket_estimate": 0.0009797811249705815,
+            "p99_bucket_estimate": 0.003832900158478602,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 1200.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 1.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 30103719,
+            "user_usec": 25954884,
+            "system_usec": 4148836,
+            "nr_periods": 3017,
+            "nr_throttled": 2,
+            "throttled_usec": 71190,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 6079939,
+            "user_usec": 3753203,
+            "system_usec": 2326735,
+            "nr_periods": 3002,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2517567,
+            "user_usec": 1509781,
+            "system_usec": 1007786,
+            "nr_periods": 1298,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.0940032786885246,
+          "cpu_cores_sample_max": 0.18719999999999998,
+          "memory_bytes_sample_max": 141662617.6
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.01368688524590164,
+          "cpu_cores_sample_max": 0.0189,
+          "memory_bytes_sample_max": 148583219.2
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.002262295081967213,
+          "cpu_cores_sample_max": 0.0032,
+          "memory_bytes_sample_max": 7799308.288
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.03799938943341505,
+        "rss_bytes_sample_max": 61997056
+      },
+      "host_cpu_busy_sample_max": 0.2409090909090909,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "ce859592ea16a51eefce8c05ea14fcb84e3c0a74a21d4abe43c73ae629176bff",
+        "backend-before.prom": "24c5ba6dcf164a71baf211a0003a3175340376f99f64cf53e3249da949ab6190",
+        "environment.json": "9ac793012acaa0acd931720e3b82316bc749b565809cf4ea283ebe2f8aa27360",
+        "k6-stdout.log": "ed3456ebe79764b51a80329cc0405a0ee1f0be3c38121e5c5a34b604962a10f1",
+        "k6-summary.json": "b6dda06f57f2a523c94a027072e5187e6f19bd8f51bc129ea958e185df017083",
+        "report.json": "d94b6499bf8c741e61af5f2c612e6c31dd27db444b50807fd765161da6cc723b",
+        "samples.jsonl": "610644cebe215b87471ab6cde023e1444a382ec7d123104c628e4ca3c1dea685"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-40",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:34:56.820780+00:00",
+        "end": "2026-10-06T16:39:58.561914+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 40,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 40.00333333333333,
+        "counts": {
+          "expected_iterations": 12000,
+          "started_iterations": 12001,
+          "completed_iterations": 12001,
+          "iterations": 12001,
+          "http_requests": 12001,
+          "successful_requests": 12001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 6.361533,
+              "p(95)": 13.302606,
+              "p(99)": 21.734681,
+              "max": 115.67815
+            },
+            "successful_requests": 2401,
+            "successful_rps": 8.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "p(99)": 15.03627114999999,
+              "max": 90.736398,
+              "med": 4.086529499999999,
+              "p(95)": 8.4008721
+            },
+            "successful_requests": 2400,
+            "successful_rps": 8
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.4101665,
+              "p(95)": 8.202336499999992,
+              "p(99)": 14.147985649999988,
+              "max": 69.766255
+            },
+            "successful_requests": 2400,
+            "successful_rps": 8
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 4.2034295,
+              "p(95)": 7.8183402999999965,
+              "p(99)": 13.965773029999994,
+              "max": 76.345033
+            },
+            "successful_requests": 2400,
+            "successful_rps": 8
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 9.3149895,
+              "p(95)": 19.26311654999994,
+              "p(99)": 34.90740270999989,
+              "max": 138.27971
+            },
+            "successful_requests": 2400,
+            "successful_rps": 8
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 2400.0,
+            "mean": 0.0004494752816564566,
+            "p95_bucket_estimate": 0.000986159169550173,
+            "p99_bucket_estimate": 0.004121951219512195,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 43506.0,
+            "mean": 0.00026494060978111213,
+            "p95_bucket_estimate": 0.0009999927415257313,
+            "p99_bucket_estimate": 0.0044099755022048055,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 43506.0,
+            "mean": 0.00040304300081176603,
+            "p95_bucket_estimate": 0.0009854251108673882,
+            "p99_bucket_estimate": 0.00409298630136987,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 2400.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 1.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 56594115,
+            "user_usec": 49455030,
+            "system_usec": 7139085,
+            "nr_periods": 3017,
+            "nr_throttled": 14,
+            "throttled_usec": 180930,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 10097537,
+            "user_usec": 6163816,
+            "system_usec": 3933720,
+            "nr_periods": 3007,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2601244,
+            "user_usec": 1605182,
+            "system_usec": 996062,
+            "nr_periods": 1457,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.17551147540983608,
+          "cpu_cores_sample_max": 0.2589,
+          "memory_bytes_sample_max": 143130624.0
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.026265573770491803,
+          "cpu_cores_sample_max": 0.039900000000000005,
+          "memory_bytes_sample_max": 154560102.4
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0025852459016393443,
+          "cpu_cores_sample_max": 0.0059,
+          "memory_bytes_sample_max": 8109686.784
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.06799830439427855,
+        "rss_bytes_sample_max": 80478208
+      },
+      "host_cpu_busy_sample_max": 0.29742033383915023,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "77ea3c9f4fc56cfa96ba36ca96787219cd592b1926f14511e9ef17cc7ab3cbcc",
+        "backend-before.prom": "78ba8082df735fa155ee0c0aee47b09ee562f46a974fb89da538aea5f748e9b2",
+        "environment.json": "ab0bb46971456e20e42fa86b639da29de857f24fbb794068cf7f4084414face9",
+        "k6-stdout.log": "e38c6309529908de0fe4a7ca98a87c0f4b27862c8503f08aac1501e52d208f3a",
+        "k6-summary.json": "9b4d575903f4c4dbf83aef46f60fedbb19cf90bc7a2adf275316f7044cfb3575",
+        "report.json": "b2d1a39eb16ae7f369994e68610a8e01dbb620a9bf56906e44ab383f7d31ab10",
+        "samples.jsonl": "1693f97e3d7c96f297203d11f3f6dd1a81c3412f94169d59924ca4eefeb1b2b8"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-80",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T16:40:23.604701+00:00",
+        "end": "2026-10-06T16:45:25.433471+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 80,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 80.00333333333333,
+        "counts": {
+          "expected_iterations": 24000,
+          "started_iterations": 24001,
+          "completed_iterations": 24001,
+          "iterations": 24001,
+          "http_requests": 24001,
+          "successful_requests": 24001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 5.779701,
+              "p(95)": 23.553344,
+              "p(99)": 141.662428,
+              "max": 382.955519
+            },
+            "successful_requests": 4801,
+            "successful_rps": 16.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "p(95)": 16.516304650000006,
+              "p(99)": 123.80159916000015,
+              "max": 473.588063,
+              "med": 3.636956
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.0600819999999995,
+              "p(95)": 14.410984150000022,
+              "p(99)": 129.31567014000015,
+              "max": 362.067508
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 3.8230044999999997,
+              "p(95)": 11.366775050000001,
+              "p(99)": 88.42431937000025,
+              "max": 271.591983
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 8.99381,
+              "p(95)": 31.412010100000014,
+              "p(99)": 246.18259061000055,
+              "max": 764.233028
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 4800.0,
+            "mean": 0.0006099230368693042,
+            "p95_bucket_estimate": 0.0027057057057057058,
+            "p99_bucket_estimate": 0.005138888888888889,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 86706.0,
+            "mean": 0.0005623983634930967,
+            "p95_bucket_estimate": 0.0011143652561247184,
+            "p99_bucket_estimate": 0.004976547884187085,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 86706.0,
+            "mean": 0.0006919186464701442,
+            "p95_bucket_estimate": 0.002608531898539583,
+            "p99_bucket_estimate": 0.007527903682719564,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 4800.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 1.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 105467638,
+            "user_usec": 91530890,
+            "system_usec": 13936748,
+            "nr_periods": 3018,
+            "nr_throttled": 260,
+            "throttled_usec": 6735309,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 18899553,
+            "user_usec": 11460116,
+            "system_usec": 7439438,
+            "nr_periods": 3012,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2923073,
+            "user_usec": 1899281,
+            "system_usec": 1023792,
+            "nr_periods": 1775,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.33021639344262294,
+          "cpu_cores_sample_max": 0.4122,
+          "memory_bytes_sample_max": 145122918.4
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.054047540983606555,
+          "cpu_cores_sample_max": 0.0978,
+          "memory_bytes_sample_max": 153196953.6
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0035606557377049182,
+          "cpu_cores_sample_max": 0.019799999999999998,
+          "memory_bytes_sample_max": 8781824.0
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.09799738664491729,
+        "rss_bytes_sample_max": 92930048
+      },
+      "host_cpu_busy_sample_max": 0.4050761421319797,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "c108081203dfe3c9a4210f4c0a7cb11a582669d9a03572072968d15de13b1d04",
+        "backend-before.prom": "556c1fbe03de8d77807f5229cdb3500669c44ed55fd1766c69436a6e5d56da05",
+        "environment.json": "b233d03b3cd0a4fe462036d93e6070f8ad52a42954ee73bd3e967f746bf04a01",
+        "k6-stdout.log": "03f1a7f00d68dc3356d0dd8d7cd067e56344627f8bd863ce7e176d6af2ef4096",
+        "k6-summary.json": "0443c58a4b6c6ca1584df2de6e5148308b272e7d00ce74f1f93150920854354b",
+        "report.json": "d54fffafe7c52e7120d26fdf5087fb6f8207b7098bf78ccb877efaea64dab677",
+        "samples.jsonl": "a95a4bd92915e036cf80f064ee29482ed779ec578423a942065a94da9246a587"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-160",
+      "status": "inconclusive",
+      "interval": {
+        "start": "2026-10-06T16:46:34.355327+00:00",
+        "end": "2026-10-06T16:51:36.237257+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 160,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [
+        "k6 dropped iterations; available VUs/generator could not sustain offered rate"
+      ],
+      "k6": {
+        "passed": false,
+        "successful_rps": 134.62333333333333,
+        "counts": {
+          "expected_iterations": 48000,
+          "started_iterations": 40387,
+          "completed_iterations": 40387,
+          "iterations": 40387,
+          "http_requests": 40387,
+          "successful_requests": 40387,
+          "dropped_iterations": 7613
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 650.740097,
+              "p(95)": 1515.0267529999996,
+              "p(99)": 2248.92557093,
+              "max": 3827.254352
+            },
+            "successful_requests": 8078,
+            "successful_rps": 26.926666666666666
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 639.4783805,
+              "p(95)": 1523.6992336499993,
+              "p(99)": 2264.759392779998,
+              "max": 4463.20643
+            },
+            "successful_requests": 8078,
+            "successful_rps": 26.926666666666666
+          },
+          "jobs": {
+            "duration_ms": {
+              "p(95)": 1564.0965053999998,
+              "p(99)": 2275.0002273599985,
+              "max": 5681.375421,
+              "med": 649.919723
+            },
+            "successful_requests": 8077,
+            "successful_rps": 26.923333333333332
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 610.536256,
+              "p(95)": 1490.9107009999998,
+              "p(99)": 2179.270456439997,
+              "max": 5237.392538
+            },
+            "successful_requests": 8077,
+            "successful_rps": 26.923333333333332
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 795.898279,
+              "p(95)": 1704.6354045999994,
+              "p(99)": 2393.3867092399996,
+              "max": 4270.074619
+            },
+            "successful_requests": 8077,
+            "successful_rps": 26.923333333333332
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 8077.0,
+            "mean": 0.009318521877924282,
+            "p95_bucket_estimate": 0.06915743670886074,
+            "p99_bucket_estimate": 0.09471756329113921,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 145664.0,
+            "mean": 0.16996509989576386,
+            "p95_bucket_estimate": 0.999659498207885,
+            "p99_bucket_estimate": 2.2359336452573344,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 145664.0,
+            "mean": 0.009862893771164108,
+            "p95_bucket_estimate": 0.0706048763911307,
+            "p99_bucket_estimate": 0.09535451533429609,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 8077.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 9.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 150287684,
+            "user_usec": 130239417,
+            "system_usec": 20048268,
+            "nr_periods": 3018,
+            "nr_throttled": 3004,
+            "throttled_usec": 151925177,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 30382195,
+            "user_usec": 18325225,
+            "system_usec": 12056970,
+            "nr_periods": 3012,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 3469253,
+            "user_usec": 2066208,
+            "system_usec": 1403046,
+            "nr_periods": 2256,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.49630655737704915,
+          "cpu_cores_sample_max": 0.5421,
+          "memory_bytes_sample_max": 150365798.4
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.09801147540983607,
+          "cpu_cores_sample_max": 0.14279999999999998,
+          "memory_bytes_sample_max": 167143014.4
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.005622950819672131,
+          "cpu_cores_sample_max": 0.0182,
+          "memory_bytes_sample_max": 9379512.32
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.13395098484314777,
+        "rss_bytes_sample_max": 98041856
+      },
+      "host_cpu_busy_sample_max": 0.3775975671566143,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "012bd6445a6ac09156f8d658760b47b0ce67bb8e491191a571b8336a4a40446c",
+        "backend-before.prom": "47bca9bd03b045801cbfc66bff9749b4cbcaeb9462bdb2dbac09ea5d5a2fbee5",
+        "environment.json": "3903f8ee5ec4ee05fc85cede522e80e0ed46ecb1f669ac0bc06826a7f53b4df0",
+        "k6-stdout.log": "2f0afc6c2f8d052cf18ac68c66a59603bf8f3d7c5585ebc9556e11bbc1f95b5f",
+        "k6-summary.json": "22f7c28a9dfe0ab46dd44507d602995138611949c5a584c88cc6d6368f20ecde",
+        "report.json": "1bc0b5dbff091e9a0dad6322565e43b7b4af474f2550129455e976321dd0fe41",
+        "samples.jsonl": "e97a41ebbfd119c8354ad671a80ec3b6b930531793119a526e1522eef54bcc5f"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-120",
+      "status": "failed",
+      "interval": {
+        "start": "2026-10-06T16:53:09.744584+00:00",
+        "end": "2026-10-06T16:58:11.776713+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 120,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": false,
+        "successful_rps": 120.00333333333333,
+        "counts": {
+          "expected_iterations": 36000,
+          "started_iterations": 36001,
+          "completed_iterations": 36001,
+          "iterations": 36001,
+          "http_requests": 36001,
+          "successful_requests": 36001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "max": 1232.203336,
+              "med": 108.815588,
+              "p(95)": 373.672896,
+              "p(99)": 568.646065
+            },
+            "successful_requests": 7201,
+            "successful_rps": 24.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 93.6341305,
+              "p(95)": 379.4091478999998,
+              "p(99)": 625.9353804600015,
+              "max": 1637.42609
+            },
+            "successful_requests": 7200,
+            "successful_rps": 24
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 96.59093899999999,
+              "p(95)": 384.49015599999984,
+              "p(99)": 605.8619871600002,
+              "max": 1371.046795
+            },
+            "successful_requests": 7200,
+            "successful_rps": 24
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 72.3115715,
+              "p(95)": 331.0556167999999,
+              "p(99)": 546.6272389300001,
+              "max": 1386.849273
+            },
+            "successful_requests": 7200,
+            "successful_rps": 24
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 245.93749300000002,
+              "p(95)": 577.60784065,
+              "p(99)": 753.1041108600003,
+              "max": 1690.264116
+            },
+            "successful_requests": 7200,
+            "successful_rps": 24
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 7200.0,
+            "mean": 0.006962895932334353,
+            "p95_bucket_estimate": 0.050560224089635855,
+            "p99_bucket_estimate": 0.09089635854341738,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 129901.0,
+            "mean": 0.019793108787485737,
+            "p95_bucket_estimate": 0.1560763579697239,
+            "p99_bucket_estimate": 0.3782812500000007,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 129901.0,
+            "mean": 0.008791092533020942,
+            "p95_bucket_estimate": 0.06325537634408601,
+            "p99_bucket_estimate": 0.09429504181600959,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 7200.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 10.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 148862441,
+            "user_usec": 129619322,
+            "system_usec": 19243119,
+            "nr_periods": 3016,
+            "nr_throttled": 2791,
+            "throttled_usec": 133813198,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 40192702,
+            "user_usec": 23326705,
+            "system_usec": 16865997,
+            "nr_periods": 3009,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 3344538,
+            "user_usec": 2053864,
+            "system_usec": 1290675,
+            "nr_periods": 2123,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.4839540983606557,
+          "cpu_cores_sample_max": 0.523,
+          "memory_bytes_sample_max": 151099801.6
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.1313344262295082,
+          "cpu_cores_sample_max": 0.1724,
+          "memory_bytes_sample_max": 164626432.0
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.00490983606557377,
+          "cpu_cores_sample_max": 0.011399999999999999,
+          "memory_bytes_sample_max": 9527361.536
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.12399388055484145,
+        "rss_bytes_sample_max": 97910784
+      },
+      "host_cpu_busy_sample_max": 0.3904282115869018,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "cf79da26a4c98e1d2f2b0571a37c802dfb2c656e251ebfca8950b3cba967368e",
+        "backend-before.prom": "84831455911b677c37508631aecd517a325c02c01efb57b433a458e7dff26f10",
+        "environment.json": "8e262116667fcfc3525210312db096dfc5a5b34b9e033bd3ee5c0c9111a7c690",
+        "k6-stdout.log": "e25aa69e4e76849b34449d5e53ff9f8012c78abbf9d118b4d4ffe0cae108f62f",
+        "k6-summary.json": "4b53ca3d834bc9b75ea3e5f4fc0e14293567ddd7b2adf6b3bc1912ab979087de",
+        "report.json": "1f1e81cc6e3d7156681c04c0d203e82c57c98ce7b503dd3ff7b9907254a3cddc",
+        "samples.jsonl": "9f332bee3d365c58012dec7fc2b6b2a27e43b54906fdd5e26c357b4111880b4f"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-100",
+      "status": "failed",
+      "interval": {
+        "start": "2026-10-06T16:58:57.307189+00:00",
+        "end": "2026-10-06T17:03:59.023098+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 100,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": false,
+        "successful_rps": 100.00333333333333,
+        "counts": {
+          "expected_iterations": 30000,
+          "started_iterations": 30001,
+          "completed_iterations": 30001,
+          "iterations": 30001,
+          "http_requests": 30001,
+          "successful_requests": 30001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 6.423366,
+              "p(95)": 217.185154,
+              "p(99)": 468.439461,
+              "max": 1369.566568
+            },
+            "successful_requests": 6001,
+            "successful_rps": 20.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "max": 1529.274566,
+              "med": 3.6391394999999997,
+              "p(95)": 200.35805720000005,
+              "p(99)": 443.8851897700001
+            },
+            "successful_requests": 6000,
+            "successful_rps": 20
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.10547,
+              "p(95)": 204.4678542500001,
+              "p(99)": 458.03371614000054,
+              "max": 1269.907439
+            },
+            "successful_requests": 6000,
+            "successful_rps": 20
+          },
+          "node_detail": {
+            "duration_ms": {
+              "max": 1599.148351,
+              "med": 3.767672,
+              "p(95)": 169.0229775500001,
+              "p(99)": 417.4615021800002
+            },
+            "successful_requests": 6000,
+            "successful_rps": 20
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 9.307902,
+              "p(95)": 380.70595085,
+              "p(99)": 673.3313877300008,
+              "max": 1773.46078
+            },
+            "successful_requests": 6000,
+            "successful_rps": 20
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 6000.0,
+            "mean": 0.001874298088682129,
+            "p95_bucket_estimate": 0.005817307692307693,
+            "p99_bucket_estimate": 0.0456896551724138,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 108311.0,
+            "mean": 0.005092664569370871,
+            "p95_bucket_estimate": 0.006999502982107346,
+            "p99_bucket_estimate": 0.16967927308447928,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 108311.0,
+            "mean": 0.0026313215492445906,
+            "p95_bucket_estimate": 0.009059565619223657,
+            "p99_bucket_estimate": 0.07139660138248846,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 6000.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 8.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 128109394,
+            "user_usec": 111519138,
+            "system_usec": 16590256,
+            "nr_periods": 3019,
+            "nr_throttled": 981,
+            "throttled_usec": 40000557,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 26643870,
+            "user_usec": 16049287,
+            "system_usec": 10594584,
+            "nr_periods": 3010,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 3081094,
+            "user_usec": 1872221,
+            "system_usec": 1208872,
+            "nr_periods": 1949,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.40251311475409834,
+          "cpu_cores_sample_max": 0.5141,
+          "memory_bytes_sample_max": 150890086.4
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.06912131147540984,
+          "cpu_cores_sample_max": 0.1507,
+          "memory_bytes_sample_max": 162634137.6
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.003965573770491803,
+          "cpu_cores_sample_max": 0.0092,
+          "memory_bytes_sample_max": 9875488.768
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.11199626308788498,
+        "rss_bytes_sample_max": 94502912
+      },
+      "host_cpu_busy_sample_max": 0.4174659262998486,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "0a40c7dc5c8bda1e77e84c71304d404d9befda8c16631b00f842fade7b049afb",
+        "backend-before.prom": "75b5068215a8f9d4fb610997182674a48ff338de9cac946c810696faec11b41b",
+        "environment.json": "4280d1545c723d70bff3529f781de6dfe48796644ade8734eb34c1664bdc1fbf",
+        "k6-stdout.log": "49bcd10003b902adf5b8e9217835175644ac7e21e69aadc7e23f626a06adb9b2",
+        "k6-summary.json": "407b98a92efa9530618d6dc40a1284c336e0073c78e3022e1c70c769884f356a",
+        "report.json": "12cbb83e320b78c2289b222aaa668bdad9a246c784fc74512ac31a186da6f9c2",
+        "samples.jsonl": "a905192d47fcea38474101f339e5cc2e9da5ed4f23c2739d807812ccaf84a010"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-90",
+      "status": "failed",
+      "interval": {
+        "start": "2026-10-06T17:10:29.280475+00:00",
+        "end": "2026-10-06T17:15:31.066335+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 90,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": false,
+        "successful_rps": 90.00333333333333,
+        "counts": {
+          "expected_iterations": 27000,
+          "started_iterations": 27001,
+          "completed_iterations": 27001,
+          "iterations": 27001,
+          "http_requests": 27001,
+          "successful_requests": 27001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "p(95)": 64.391636,
+              "p(99)": 237.783369,
+              "max": 619.254681,
+              "med": 5.918594
+            },
+            "successful_requests": 5401,
+            "successful_rps": 18.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "med": 3.5514145,
+              "p(95)": 57.39386825000005,
+              "p(99)": 230.23595877000002,
+              "max": 738.287354
+            },
+            "successful_requests": 5400,
+            "successful_rps": 18
+          },
+          "jobs": {
+            "duration_ms": {
+              "max": 578.87952,
+              "med": 4.0166295,
+              "p(95)": 56.68521510000003,
+              "p(99)": 219.5988137600001
+            },
+            "successful_requests": 5400,
+            "successful_rps": 18
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 3.758077,
+              "p(95)": 43.138555200000006,
+              "p(99)": 168.00001594000034,
+              "max": 548.690815
+            },
+            "successful_requests": 5400,
+            "successful_rps": 18
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 9.033695999999999,
+              "p(95)": 125.83405735,
+              "p(99)": 372.5886334100002,
+              "max": 867.244273
+            },
+            "successful_requests": 5400,
+            "successful_rps": 18
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5400.0,
+            "mean": 0.0008277172368579395,
+            "p95_bucket_estimate": 0.0037974276527331188,
+            "p99_bucket_estimate": 0.007959183673469388,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 97511.0,
+            "mean": 0.0011932864167221292,
+            "p95_bucket_estimate": 0.0023673853211009146,
+            "p99_bucket_estimate": 0.020295737327188923,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 97511.0,
+            "mean": 0.0011250779306531912,
+            "p95_bucket_estimate": 0.004178016027723629,
+            "p99_bucket_estimate": 0.019007754010695176,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 5400.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 9.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 117982645,
+            "user_usec": 101989911,
+            "system_usec": 15992734,
+            "nr_periods": 3016,
+            "nr_throttled": 542,
+            "throttled_usec": 16919124,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 22102134,
+            "user_usec": 13080324,
+            "system_usec": 9021810,
+            "nr_periods": 3008,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 3069276,
+            "user_usec": 1820332,
+            "system_usec": 1248944,
+            "nr_periods": 1855,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.3762327868852459,
+          "cpu_cores_sample_max": 0.5046,
+          "memory_bytes_sample_max": 150890086.4
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.06549344262295081,
+          "cpu_cores_sample_max": 0.1351,
+          "memory_bytes_sample_max": 160851558.4
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.003937704918032787,
+          "cpu_cores_sample_max": 0.0111,
+          "memory_bytes_sample_max": 10601103.36
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.12199581930085529,
+        "rss_bytes_sample_max": 93323264
+      },
+      "host_cpu_busy_sample_max": 0.362077660110943,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "6cc0b67293f6196c9cf9d86b15df21c9619e43a00351c91e82ce1064eb1f4047",
+        "backend-before.prom": "64d970747bfb9e8222ac7178a02b85c7a995dbb30b1e4488ad389e83981484e9",
+        "environment.json": "f508291bd86d6a53b288477b11e5ebd8823de200aac270c6f96f982ff047a7aa",
+        "k6-stdout.log": "0f18ecf389d486b969ffd1882593b40fc705516b18b3a46f19e721e5fc1b3447",
+        "k6-summary.json": "58ef40848ed9eea3c3474dc15438432c457a46a14c0e175931e7adaed5749983",
+        "report.json": "affb02a53194b79a10bf64eda9c633a7647e68919475ba4e4136129bde7c626b",
+        "samples.jsonl": "438b9d5b8275674c3052d6bccce9f565def49ef5fd9fda9f7c49ebea7237356c"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-85",
+      "status": "failed",
+      "interval": {
+        "start": "2026-10-06T17:16:03.549677+00:00",
+        "end": "2026-10-06T17:21:05.617865+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 85,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": false,
+        "successful_rps": 85,
+        "counts": {
+          "expected_iterations": 25500,
+          "started_iterations": 25500,
+          "completed_iterations": 25500,
+          "iterations": 25500,
+          "http_requests": 25500,
+          "successful_requests": 25500,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "med": 5.8305405,
+              "p(95)": 49.30778645000007,
+              "p(99)": 231.4820081200001,
+              "max": 907.514228
+            },
+            "successful_requests": 5100,
+            "successful_rps": 17
+          },
+          "nodes": {
+            "duration_ms": {
+              "p(95)": 39.840754650000044,
+              "p(99)": 238.2422969900004,
+              "max": 749.977871,
+              "med": 3.645415
+            },
+            "successful_requests": 5100,
+            "successful_rps": 17
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.0826139999999995,
+              "p(95)": 38.38384775000004,
+              "p(99)": 225.62804782000006,
+              "max": 1281.66757
+            },
+            "successful_requests": 5100,
+            "successful_rps": 17
+          },
+          "node_detail": {
+            "duration_ms": {
+              "med": 3.802478,
+              "p(95)": 29.15596585000002,
+              "p(99)": 190.57008283000027,
+              "max": 588.740423
+            },
+            "successful_requests": 5100,
+            "successful_rps": 17
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 8.876383,
+              "p(95)": 80.62436575000004,
+              "p(99)": 390.6138734800017,
+              "max": 819.04206
+            },
+            "successful_requests": 5100,
+            "successful_rps": 17
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 5100.0,
+            "mean": 0.0009363633886074668,
+            "p95_bucket_estimate": 0.0035668934240362816,
+            "p99_bucket_estimate": 0.009791666666666667,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 92105.0,
+            "mean": 0.0011843909044129957,
+            "p95_bucket_estimate": 0.0018423365210648746,
+            "p99_bucket_estimate": 0.014154367469879386,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 92105.0,
+            "mean": 0.0010446201241519726,
+            "p95_bucket_estimate": 0.0037663940307074185,
+            "p99_bucket_estimate": 0.017023512476007596,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 5100.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 4.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 112476175,
+            "user_usec": 97054411,
+            "system_usec": 15421763,
+            "nr_periods": 3017,
+            "nr_throttled": 435,
+            "throttled_usec": 13239642,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 20569812,
+            "user_usec": 12360948,
+            "system_usec": 8208864,
+            "nr_periods": 3010,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2925875,
+            "user_usec": 1800584,
+            "system_usec": 1125292,
+            "nr_periods": 1793,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.35201967213114754,
+          "cpu_cores_sample_max": 0.5428999999999999,
+          "memory_bytes_sample_max": 152148377.6
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.05794426229508197,
+          "cpu_cores_sample_max": 0.10529999999999999,
+          "memory_bytes_sample_max": 159488409.6
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.003647540983606557,
+          "cpu_cores_sample_max": 0.0079,
+          "memory_bytes_sample_max": 10926161.92
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.10599784152354233,
+        "rss_bytes_sample_max": 93454336
+      },
+      "host_cpu_busy_sample_max": 0.3718209562563581,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "78e96b188f15ca4e3a44108cbb809c801f7585a4b7d6252cc444e414e0e53221",
+        "backend-before.prom": "dad80d792036d906337490624f15cdec38ad8961a448fdff5c39ea7eb7827da4",
+        "environment.json": "b420c1950c278a03c125d30cc05c8ac853f6fa9dbf8bc417a87af67f6304810a",
+        "k6-stdout.log": "89f7faf4ce042a135b69c7d813f9842b1245dc794542592b176d43d61a07dcac",
+        "k6-summary.json": "0515d944def48157b353be0a52fac47121f55f470d33051744b2f1c56ad50a5d",
+        "report.json": "f4bbe5eab2c8d7edb3062cd5b9d2d780770f9d06f0be5e0210a8bcb3d3970dbc",
+        "samples.jsonl": "13fce8b0b20202d1e27f3ccd6499ba0dccb58148bcb7533875276a154cb08796"
+      },
+      "resource_sample_count": 61
+    },
+    {
+      "run": "rps-verified-80-repeat",
+      "status": "passed",
+      "interval": {
+        "start": "2026-10-06T17:21:38.920420+00:00",
+        "end": "2026-10-06T17:26:40.772392+00:00"
+      },
+      "config": {
+        "environment": "isolated-real-stores",
+        "rps": 80,
+        "duration_seconds": 300,
+        "node_id": "node-0",
+        "ai_entity_type": "node",
+        "ai_entity_id": "node-0",
+        "max_vus": 100,
+        "p95_ms": 100.0,
+        "p99_ms": 250.0,
+        "idle": false
+      },
+      "errors": [],
+      "inconclusive_reasons": [],
+      "k6": {
+        "passed": true,
+        "successful_rps": 80.00333333333333,
+        "counts": {
+          "expected_iterations": 24000,
+          "started_iterations": 24001,
+          "completed_iterations": 24001,
+          "iterations": 24001,
+          "http_requests": 24001,
+          "successful_requests": 24001,
+          "dropped_iterations": 0
+        },
+        "routes": {
+          "capacity": {
+            "duration_ms": {
+              "max": 398.767512,
+              "med": 5.829132,
+              "p(95)": 23.697503,
+              "p(99)": 134.569435
+            },
+            "successful_requests": 4801,
+            "successful_rps": 16.003333333333334
+          },
+          "nodes": {
+            "duration_ms": {
+              "p(95)": 15.489634150000018,
+              "p(99)": 111.57047160000056,
+              "max": 322.466169,
+              "med": 3.6614579999999997
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "jobs": {
+            "duration_ms": {
+              "med": 4.074793,
+              "p(95)": 13.9676966,
+              "p(99)": 111.28418097000062,
+              "max": 369.580408
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "node_detail": {
+            "duration_ms": {
+              "p(95)": 12.171252850000014,
+              "p(99)": 76.90397491000003,
+              "max": 295.963691,
+              "med": 3.8280465
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          },
+          "ai_cached": {
+            "duration_ms": {
+              "med": 8.9540895,
+              "p(95)": 31.349737050000016,
+              "p(99)": 242.78857449000003,
+              "max": 495.263401
+            },
+            "successful_requests": 4800,
+            "successful_rps": 16
+          }
+        },
+        "check_failure_rate": 0,
+        "http_failure_rate": 0
+      },
+      "backend": {
+        "histograms": [
+          {
+            "metric": "videre_ai_cache_get_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 4800.0,
+            "mean": 0.0006198672341542988,
+            "p95_bucket_estimate": 0.002629179331306991,
+            "p99_bucket_estimate": 0.0049635258358662615,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_acquisition_seconds",
+            "labels": {
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 86706.0,
+            "mean": 0.0004995679208152893,
+            "p95_bucket_estimate": 0.00119128094725511,
+            "p99_bucket_estimate": 0.004924585575888055,
+            "bucket_estimates_available": true
+          },
+          {
+            "metric": "videre_database_query_seconds",
+            "labels": {
+              "operation": "select",
+              "outcome": "success"
+            },
+            "unit": "seconds",
+            "count": 86706.0,
+            "mean": 0.000682478848261374,
+            "p95_bucket_estimate": 0.002585992807117166,
+            "p99_bucket_estimate": 0.007170077519379863,
+            "bucket_estimates_available": true
+          }
+        ],
+        "counters": [
+          {
+            "metric": "videre_ai_cache_reads_total",
+            "labels": {
+              "result": "hit"
+            },
+            "delta": 4800.0
+          }
+        ],
+        "counter_resets": [],
+        "missing_series": [],
+        "backend_process_restarted": false,
+        "unavailable_metric_families": [],
+        "histogram_note": "Interval bucket interpolation estimates in seconds; k6 route latency is in milliseconds.",
+        "connections_checked_out_sample_max": 7.0
+      },
+      "cgroups": {
+        "videre-rps-backend": {
+          "cpu": {
+            "usage_usec": 106177145,
+            "user_usec": 91851996,
+            "system_usec": 14325149,
+            "nr_periods": 3021,
+            "nr_throttled": 265,
+            "throttled_usec": 6471903,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-postgres": {
+          "cpu": {
+            "usage_usec": 19020814,
+            "user_usec": 11458301,
+            "system_usec": 7562513,
+            "nr_periods": 3008,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "videre-rps-redis": {
+          "cpu": {
+            "usage_usec": 2906137,
+            "user_usec": 1853051,
+            "system_usec": 1053087,
+            "nr_periods": 1764,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memory": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "resources": {
+        "videre-rps-backend": {
+          "cpu_cores_mean": 0.33195573770491804,
+          "cpu_cores_sample_max": 0.4207,
+          "memory_bytes_sample_max": 152777523.2
+        },
+        "videre-rps-postgres": {
+          "cpu_cores_mean": 0.05531803278688525,
+          "cpu_cores_sample_max": 0.13570000000000002,
+          "memory_bytes_sample_max": 157076684.8
+        },
+        "videre-rps-redis": {
+          "cpu_cores_mean": 0.0032426229508196723,
+          "cpu_cores_sample_max": 0.0051,
+          "memory_bytes_sample_max": 10957619.2
+        }
+      },
+      "generator": {
+        "cpu_cores_sample_max": 0.11799871851029359,
+        "rss_bytes_sample_max": 93454336
+      },
+      "host_cpu_busy_sample_max": 0.35294117647058826,
+      "backend_revision": "source-sha256:8284aa4d7582b993c8145e97f8e1d10fcda8c0fea64d509ca0db3310f8ebcb9a",
+      "artifacts_sha256": {
+        "backend-after.prom": "be68bfd6c3023fbd35708defa6d94c865e92fd31a0d76aa247c62064c04067fa",
+        "backend-before.prom": "30b92d79e12a1d29867ca9a26c69b6f41527f124463c43e42f822e6d73aa66fe",
+        "environment.json": "16bfe075a9ef410da7980743a27bb1c817b5236ed877c84ca877686a8aeae72d",
+        "k6-stdout.log": "03f1a7f00d68dc3356d0dd8d7cd067e56344627f8bd863ce7e176d6af2ef4096",
+        "k6-summary.json": "ec2b8f6d53dd64cc48b9e747c126be563eb218fe6f34803b295af066b31b2362",
+        "report.json": "cb0b6eec631c90d0b928ee18fdf9329578f5e1c8931769560b147cfdb483f305",
+        "samples.jsonl": "e5a9041a0b28c361462bcb47ef212b23349e13b4031ad2e8b97eabd3ec3f3b37"
+      },
+      "resource_sample_count": 61
+    }
+  ],
+  "conclusion": {
+    "highest_repeated_passing_rps": 80,
+    "adjacent_failing_rps": 85,
+    "resolution_rps": 5,
+    "passing_run_ids": [
+      "rps-verified-80",
+      "rps-verified-80-repeat"
+    ],
+    "validated_requests": 48002,
+    "validated_cached_ai_responses": 9600,
+    "worst_route_p95_ms": [
+      31.412010100000014,
+      31.349737050000016
+    ],
+    "worst_route_p99_ms": [
+      246.18259061000055,
+      242.78857449000003
+    ],
+    "interpretation": "80 RPS passed twice within fixed targets; 85 RPS failed p99. Observed boundary for this fixture, with little p99 headroom, not a guaranteed deployment capacity."
+  }
+}

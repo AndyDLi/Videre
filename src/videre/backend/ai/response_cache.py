@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from time import perf_counter
 
 from pydantic import ValidationError
 from redis.asyncio import Redis
 
+from ..metrics.performance import AI_CACHE_GET, AI_CACHE_READS
 from .analysis import RootCauseAnalysis
 from .fingerprint import EntityFingerprint
 
@@ -28,15 +30,25 @@ async def read_cached_analysis(
     redis_client: Redis,
     fingerprint: EntityFingerprint
 ) -> RootCauseAnalysis | None:
-    payload = await redis_client.get(cache_key(fingerprint))
+    started = perf_counter()
+    outcome = "error"
+    try:
+        payload = await redis_client.get(cache_key(fingerprint))
+        outcome = "success"
+    finally:
+        AI_CACHE_GET.labels(outcome).observe(perf_counter() - started)
     if payload is None:
+        AI_CACHE_READS.labels("miss").inc()
         return None
     
     try:
-        return RootCauseAnalysis.model_validate_json(payload)
+        analysis = RootCauseAnalysis.model_validate_json(payload)
     except ValidationError:
+        AI_CACHE_READS.labels("invalid").inc()
         logger.warning("discarding unreadable cached analysis", extra={"entity_id": fingerprint.entity_id})
         return None
+    AI_CACHE_READS.labels("hit").inc()
+    return analysis
 
 
 async def write_cached_analysis(

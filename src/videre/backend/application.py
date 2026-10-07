@@ -10,13 +10,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from videre.logging_config import configure_logging
 
 from .cache.refresh import run_cache_refresh
 from .dependencies import create_engine, create_gemini_analyst, create_http_client, create_redis_client
 from .metrics import instrument_application
+from .metrics.performance import measured_session_factory
 from .persistence.consumer import run_consumer
 from .persistence.retention import run_retention_pruning
 from .routes import ai, capacity, clusters, failures, health, jobs, nodes, stream
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     
     # connects to the databases
     app.state.engine = engine
-    app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    app.state.session_factory = measured_session_factory(engine)
     app.state.redis_client = create_redis_client(settings)
     app.state.http_client = create_http_client(settings)
     app.state.gemini_analyst = create_gemini_analyst(settings)
