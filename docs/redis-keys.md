@@ -1,16 +1,18 @@
 # Redis Key Convention
 
-A single Redis instance supports caching and rate limiting. It uses database 0 only, with no Redis ACLs or per-feature database separation. Key prefixes therefore serve as the namespace boundary: every Redis reader and writer must follow this convention exactly to prevent collisions.
+Redis uses one database (`0`) for caching and rate limiting, with no custom access rules (ACLs). Key prefixes separate features and prevent collisions.
 
 All keys use `:` as the hierarchy separator.
 
 ## Namespaces
 
+TTL is how long a key lasts before it expires.
+
 | Prefix | Purpose | TTL | Safe to lose? |
 |---|---|---|---|
-| `cache:` | Cached read models that can be rebuilt from PostgreSQL. | Seconds to minutes | Yes |
-| `ratelimit:` | Windowed counters used to enforce connection, message, and AI usage limits. | Applicable window | No |
-| `ai:` | Fingerprint-keyed cache of AI assistant responses. | ~5–10 min | Yes |
+| `cache:` | Cached data that can be rebuilt from PostgreSQL. | 20 seconds by default | Yes |
+| `ratelimit:` | WebSocket connection counts and AI request counters. | AI window; WebSocket: one hour on connection attempts | No |
+| `ai:` | Cached AI assistant responses. | Seven minutes by default | Yes |
 
 ## Key Formats
 
@@ -18,16 +20,16 @@ All keys use `:` as the hierarchy separator.
 # Current cluster-health snapshot used for low-latency frontend reads.
 cache:cluster-health:<cluster_id>
 
-# WebSocket connection counter for a client IP address.
+# WebSocket connection counter for the client IP seen by the backend.
 ratelimit:websocket:<ip>
 
-# Global daily AI request counter, capped at approximately 80% of the provider quota.
+# Global daily AI request counter, configured for 400 requests per UTC day.
 ratelimit:ai:global:day:<YYYY-MM-DD>
 
 # Global per-minute AI request counter.
 ratelimit:ai:global:min:<epoch_minute>
 
-# Per-IP AI request counters, daily and per-minute.
+# Per-IP AI request counters, using the client IP seen by the backend.
 ratelimit:ai:ip:<ip>:day:<YYYY-MM-DD>
 ratelimit:ai:ip:<ip>:min:<epoch_minute>
 
@@ -37,14 +39,14 @@ ai:resp:<entity_type>:<entity_id>:<digest>
 
 ## Operational Rules
 
-- Set a TTL on every key. Cache keys expire to prevent stale reads. Rate-limit keys expire when their enforcement window ends.
-- Use Redis `noeviction`. Redis must reject writes when it reaches its memory limit rather than silently evicting keys.
-- Never allow rate-lmiit counters to be evicted. Losing them can temporarily bypass WebSocket or AI quota enforcement.
-- The configured Redis memory limit should comfortably exceed the expected dataset size. At Videre's scale, reaching the limit is not expected. Rejecting writes is nevertheless safer than weakening quota enforcement.
-- WebSocket broadcasts wait at most 2 seconds per client. Busy clients skip refreshes without queuing them. The last snapshot is marked **Stale** at 20 seconds.
+- Cache keys expire to prevent stale reads. AI counters expire at the end of their minute or UTC day. WebSocket connection attempts refresh a one-hour TTL.
+- WebSocket disconnect cleanup can reset a counter to zero without a TTL. This is a current implementation gap.
+- AI counters apply to cache misses; cached responses bypass the limits.
+- Use `noeviction` and allow enough memory for the expected data. Redis then rejects writes at its memory limit; removing rate-limit counters could bypass quotas.
+- WebSocket broadcasts send to clients concurrently and wait up to two seconds. Clients with a send still in progress skip later refreshes. The last snapshot is marked **Stale** at 20 seconds.
 
 ## AI Evidence and Invalidation
 
-AI diagnoses include relevant failures from the requested entity, its related nodes and GPUs, and shared incidents within its cluster. Evidence is limited, and omitted details are flagged. Job metrics show overall activity; related evidence does not prove exact GPU assignment or what caused a failure.
+AI diagnoses use relevant failures from the requested entity, related nodes and GPUs, and shared cluster incidents. Omitted details are flagged. Job metrics show overall activity, not exact GPU assignments or proof of a failure's cause.
 
-Cached diagnoses are reused for up to seven minutes. Changes to relevant health, job placement or failures make the next request generate a fresh diagnosis. Routine telemetry and scheduler updates keep the cached answer usable until it expires, avoiding repeated AI requests as measurements change.
+Cached diagnoses last up to seven minutes by default. Relevant health, job placement, or failure changes stop reuse; routine telemetry and scheduler updates do not.

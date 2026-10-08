@@ -1,52 +1,31 @@
-# Simulated-to-Real Kubernetes Bridge
+# Turning Simulated Jobs into Real Pods
 
-## Overview
+Videre simulates nodes, GPUs, and scheduling in memory. Each scheduled job gets a lightweight Kubernetes Job and Pod on the single real k3s node. These Pods produce real Kubernetes results without running GPU workloads.
 
-Our system employs a **hybrid simulation architecture** to model complex Kubernetes workloads at scale. We bridge a purely logical, simulated cluster (which dictates scheduling, queuing, and capacity) with a minimal, real Kubernetes execution environment.
+## How It Works
 
-## Bridge Mechanics
+1. The simulator assigns a job to a simulated node and creates its real Pod.
+2. Labels link the Pod to that simulated job and node. The Job has a two-minute time limit by default.
+3. The Pod waits for an outcome. The simulator runs a command inside the Pod (Kubernetes exec) to write the outcome to a file:
 
-We maintain a strict separation between the "Virtual Plane" (where decisions are made) and the "Physical Plane" (where state is recorded).
+| Outcome | Real Result |
+|---|---|
+| `complete` | Exits successfully with code `0` |
+| `fail` | Exits with code `1` |
+| `oom` | Exceeds its memory limit and is killed for running out of memory (`OOMKilled`) |
 
-### 1. The Virtual Plane (The Simulator)
-The simulator is our custom application that acts as a virtual control plane. It holds a purely in-memory model of a massive, multi-node cluster. It processes workload requirements, calculates resource capacities, and makes logical scheduling decisions (e.g., "Assign Virtual Job 42 to Virtual GPU Node 7").
+These results appear in Kubernetes status, logs, and diagnostic commands. Kubernetes removes finished Jobs after two minutes by default.
 
-### 2. The Physical Plane (Representative Pods)
-Whenever the simulator "schedules" a job, it translates that decision into reality by creating a real Kubernetes `Job` on a single, physical control-plane node.
+## Permissions and Limits
 
-These real Pods are extremely lightweight. They act as "stunt doubles" for the heavy workloads they represent.
-- They are annotated with metadata linking them to the virtual plane (`MATERIALIZED_LABEL`, `SIMULATED_JOB_LABEL`, `SIMULATED_NODE_LABEL`).
-- They do not execute the actual heavy compute task.
-- They run a tiny state machine (a shell script) that sits in an idle `sleep` loop, waiting for a signal.
+The `videre-simulator` account can create Jobs, read/list Pods, and run exec in the `videre` namespace. It cannot read, watch, or delete Jobs.
 
-### 3. The Lifecycle Bridge (State Injection)
-When the simulator calculates that a virtual job has finished its lifecycle, it must project that outcome into the real Kubernetes cluster. It does this using the Kubernetes **Exec API** (`kubectl exec`). 
+Kubernetes checks each request against these rules:
 
-The simulator reaches into the idle Pod and injects a single command (`complete`, `fail`, or `oom`) over a shared volume. The lightweight Pod reads this command and executes a real Linux system action:
-- **`complete`**: The Pod gracefully exits with code `0`.
-- **`fail`**: The Pod exits with a non-zero error code (e.g., code `1`).
-- **`oom`**: The Pod executes a rapid memory-allocation script, intentionally breaching its `resources.limits.memory`.
+- Simulator Jobs must use `sim-job-` names and the approved template: one `workload` container, limited resources, the default account without an API token, no volumes or credentials, and no host access or elevated privileges.
+- Only the authenticated Job controller can create reserved Pods, and each must belong to a reserved Job. Pod updates, debug containers, and resource resizing are also checked.
+- Simulator exec is restricted to `sim-job-` Pod names. Copying labels does not grant access or bypass the rules.
 
-### 4. Authorization and Admission
+CI can replace application images, but cannot add or remove containers or change accounts, credentials, mounts, resource limits, or security settings. Replacement code still has the application's existing permissions. These rules do not block access to existing application services or prevent resource exhaustion.
 
-The simulator uses `videre-simulator` in the `videre` namespace. Its Role permits Job creation, Pod get/list, and Pod exec get/create. The Python client uses GET WebSocket exec; current Kubernetes also requires create authorization for that connection. Jobs expire through the Kubernetes TTL controller, so the simulator needs no Job read, watch, or delete permission.
-
-Native ValidatingAdmissionPolicies enforce the boundaries RBAC cannot express:
-- Simulator Jobs must use the reserved `sim-job-` name family and the bounded workload template: default ServiceAccount, token automount disabled, one `workload` container, no credential inputs or volumes, no host access, no privilege escalation, dropped capabilities, and RuntimeDefault seccomp. Automatic selection prevents adoption of unrelated Pods.
-- Reserved Pods may be created only by the authenticated Job controller, with a controlling reserved Job owner. The same template restrictions apply to Pod, ephemeral-container, and resize updates. Labels never grant an exception.
-- Simulator exec is admitted only for the protected Pod name family. CONNECT admission receives connection options rather than the target Pod, so the name family is protected at creation, not inferred from copied labels.
-
-Deployment admission also prevents the CI identity from changing application identities, credential inputs, mounts, container membership, or resource/security/host settings. Deployment authority still includes trust in application code: an arbitrary replacement image can use the credentials already supplied to that application. These controls do not isolate workloads from existing application services or prevent resource exhaustion through permitted operations. See `docs/setup.md` for activation and credential rotation.
-
----
-
-## Motivation
-
-### 1. Observability
-By triggering real container lifecycle events, when a developer runs `kubectl get pods`, `kubectl describe pod`, or `kubectl logs`, they are looking at **real Kubernetes API objects**, not synthetic strings generated by a mock server.
-
-### 2. Authentic Failure Modes
-In our architecture, by forcing the Pod to exceed its actual memory limit, the Linux kernel's cgroup OOM killer steps in, meaning we get a **real kernel-level termination** that mirrors how a real heavy workload would die in production. Kubernetes natively records the correct exit codes and container state reasons.
-
-### 3. Massive Cost and Resource Efficiency
-We can simulate the scheduling, queueing, and failure of thousands of heavy GPU and CPU workloads without paying for thousands of actual GPUs and CPUs. Because the representative Pods just sleep until signaled, we can run a massive, believable simulation on a single, low-cost node.
+Exact restrictions are defined in [the admission rules](../k8s/namespace/30-admission.yaml).
