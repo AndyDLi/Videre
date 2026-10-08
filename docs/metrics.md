@@ -1,17 +1,10 @@
 # Prometheus Metrics
 
-The backend exposes `/metrics` on port 8000. Prometheus periodically uses the Kubernetes network (via the in-cluster `backend` Service) to scrape metrics from it. Continuous numeric telemetry lives here, while structured records (failure records, scheduler events, job rows) stay in Postgres.
-
-Values come from two writers inside the backend process:
-
-- The Kafka consumer, strictly after each event's Postgres transaction commits.
-- The cache-refresh loop for cluster-wide aggregations.
-
-Kafka offset commits follow metric updates. If persistence succeeds but the offset commit fails, reconnecting can replay that event and increment its counters again even when Postgres suppresses duplicate domain rows. Counters therefore reflect processing, including replays, rather than exactly-once event counts. Valid bookmarks limit replay to uncommitted records; a missing or invalid bookmark uses `earliest` and may repeat increments across the retained three-day history.
-
-Events rejected as stale, legacy-after-boundary, or conflicting runs update no metrics. Run resets appear in job/incident aggregates after the next cache refresh; node/GPU gauges and measured telemetry follow normal per-entity snapshots.
+Prometheus reads the backend's `/metrics` endpoint on port 8000 through the internal `backend` Service. Detailed job, failure, and scheduling records stay in Postgres.
 
 ## Domain Metrics
+
+Gauges show current values. Counters count processed events. Labels identify the entity, state, or event type.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
@@ -29,8 +22,7 @@ Events rejected as stale, legacy-after-boundary, or conflicting runs update no m
 | `videre_node_failure_events_total` | Counter | `node_id`, `failure_mode` | Node-level failure events |
 | `videre_capacity_events_total` | Counter | `event_type` | Processed capacity-scenario events |
 
-- `state` values are the `NodeHealthState`, `GpuHealthState`, and `JobState` enums.
-- `failure_mode`, `error_type`, and `event_type` values are `EventType` members and are grouped by the topic they arrive on:
+Health and job states use `NodeHealthState`, `GpuHealthState`, and `JobState`. Event labels (`failure_mode`, `error_type`, `event_type`) use these groups:
 
 | Group | Event types |
 |---|---|
@@ -39,25 +31,39 @@ Events rejected as stale, legacy-after-boundary, or conflicting runs update no m
 | job | `job.oom_kill`, `job.nccl_timeout`, `job.straggler`, `job.checkpoint_corrupt`, `job.preempted` |
 | capacity | `capacity.fragmentation`, `capacity.reserved_idle` |
 
-## GPU Availability and Capacity Counts
+## Capacity Counts
 
-`GET /capacity` classifies each tracked GPU once, using its last-reported node health, GPU health and utilization:
+`GET /capacity` puts each GPU into one category, using its last-reported health and utilization:
 
-| Category | Rule, in precedence order |
+| Category | Rule |
 |---|---|
-| Unavailable for new work | Node is NOT_READY, DRAINING or CORDONED, or GPU is FAILED. |
-| Degraded | READY node and DEGRADED or THROTTLING GPU, at any utilization. |
-| Healthy idle | READY node and HEALTHY GPU below 5% utilization. |
-| Healthy active | READY node and HEALTHY GPU at least 5% utilized. |
+| Unavailable for new work | Node is NOT_READY, DRAINING, or CORDONED, or GPU is FAILED |
+| Degraded | READY node; DEGRADED or THROTTLING GPU |
+| Healthy idle | READY node; HEALTHY GPU below 5% utilization |
+| Healthy active | READY node; HEALTHY GPU at least 5% utilized |
 
-`unavailable_gpus + degraded_gpus + idle_gpus + active_gpus = total_gpus` per cluster. CORDONED nodes can still run existing work. These observations do not guarantee placement or fresh telemetry. Raw GPU-health snapshots remain a separate view. Node-level job assignments provide no per-GPU allocation or reservation evidence.
+`unavailable_gpus + degraded_gpus + idle_gpus + active_gpus = total_gpus` per cluster.
 
-`queued_job_count`, `drained_node_count` and `unschedulable_node_count` count current PENDING jobs, DRAINING nodes and CORDONED nodes. `queueing_delay_event_count` counts stored QUEUEING_DELAY records linked to a node in that cluster, from the inclusive rolling three-day cutoff through the captured current time; future records are excluded. Repeated delays on one node count separately. This is neither a distinct entity count nor proof of fragmentation or capacity lost.
+| Field | Counts |
+|---|---|
+| `queued_job_count` | Current PENDING jobs |
+| `drained_node_count` | Current DRAINING nodes |
+| `unschedulable_node_count` | Current CORDONED nodes |
+| `queueing_delay_event_count` | Node-linked QUEUEING_DELAY records in that cluster during the last three days, including the start and end times |
+| `idle_reserved_gpus` | Older name for `idle_gpus`; does not measure reservations |
+| `fragmentation_event_count` | Older name for `queueing_delay_event_count`; does not measure fragmentation |
 
-The deprecated wire aliases `idle_reserved_gpus` and `fragmentation_event_count` equal `idle_gpus` and `queueing_delay_event_count`, respectively, for older clients. Their names do not establish reservations or fragmentation. The legacy `capacity.reserved_idle` event identifier represents a simulated scenario; it still emits PLACEMENT with reason `simulated idle-capacity signal`, without tracked reservation state.
+CORDONED nodes may still run existing jobs. Counts may be stale and do not guarantee job placement. Job assignments identify nodes, not individual GPUs.
 
-Grafana's GPU count below 5% uses measured utilization alone; it does not establish health, new-work availability or reservations. Historical failure/error/capacity charts use Prometheus processing-counter increases over the selected range, with three-day history retention and possible replay increments. They do not count unique GPUs/jobs or lost capacity. The events-per-minute chart uses a ten-minute rate window. Keep those historical counts separate from current-state counts and the API's node-linked stored delay records.
+Future-dated delay records are excluded; repeated delays on one node count separately. `capacity.reserved_idle` reports a simulated PLACEMENT, without tracking reservations.
 
-## HTTP Service Metrics
+## Updates and Charts
 
-The FastAPI instrumentator automatically tracks API request count, duration, and request/response size by route, HTTP method, and exact status code. `/healthz` and `/metrics` are excluded from API request metrics because health probes and Prometheus scrapes are internal traffic, not real API usage.
+- The backend saves accepted events to Postgres, updates metrics, then saves its Kafka reading position. Replays count again; a missing or invalid position may replay up to three days of events.
+- Rejected events do not update metrics. After simulator resets, job-state and unresolved-failure gauges update at the next cache refresh; node/GPU values follow their next snapshots.
+- Grafana's GPU count below 5% uses utilization alone, without checking health, availability for new work, or reservations.
+- Historical event charts count processed events, not unique GPUs/jobs or lost capacity. History lasts three days; events per minute is calculated over a ten-minute window.
+
+## HTTP Metrics
+
+API metrics track request count, duration, and request/response size by route, method, and exact status code. `/healthz` and `/metrics` are excluded.

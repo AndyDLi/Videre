@@ -16,73 +16,74 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyDLi/Videre/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/AndyDLi/Videre/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-**A real-time, full-stack observability platform and operations console for GPU training clusters, serving live telemetry on a real Kubernetes cluster with AI-assisted root-cause analysis.**
+**A dashboard for monitoring and investigating failures in a simulated GPU training cluster, with real Kubernetes job outcomes and AI explanations.**
 
-[Architecture](#️-architecture) · [Report Bug](https://github.com/AndyDLi/Videre/issues) · [Request Feature](https://github.com/AndyDLi/Videre/issues)
+Videre simulates computers (nodes), graphics processing units (GPUs), and training jobs. Lightweight containers run on one real Kubernetes node; no GPU hardware is required.
+
+[Architecture](#architecture) · [Report Bug](https://github.com/AndyDLi/Videre/issues) · [Request Feature](https://github.com/AndyDLi/Videre/issues)
 
 </div>
 
 ---
 
-
+**Recorded walkthrough**
 
 https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
-
-
 
 ---
 
 ## 📋 Table of Contents
 
-- [✨ What It Does](#-what-it-does)
-- [🏗️ Architecture](#️-architecture)
-- [🚀 Running It Yourself](#-running-it-yourself)
-- [📁 Repository Layout](#-repository-layout)
-- [📚 Additional Documentation](#-additional-documentation)
-- [📜 License](#-license)
-- [👤 Author](#-author)
+- [🧭 What It Does](#what-it-does)
+- [🧩 Architecture](#architecture)
+- [🛠️ Running It Yourself](#running-it-yourself)
+- [🗂️ Repository Layout](#repository-layout)
+- [📖 Additional Documentation](#additional-documentation)
+- [⚖️ License](#license)
+- [👤 Author](#author)
 
-## ✨ What It Does
+<a id="what-it-does"></a>
 
-### 📡 Live Cluster Telemetry
+## 🧭 What It Does
 
-- **Real-Time Health Stream** - Node, GPU, and job states stream over a WebSocket, refreshing from a Redis snapshot every five seconds. The dashboard retains the last snapshot and marks it **Stale** after 20 seconds without fresh data.
-- **Continuous Metrics** - Every GPU reports utilization, temperature, memory, and error counters on a ten-second cadence.
-- **Weighted Failure Injection** - Nineteen distinct failure modes span GPU, node, job, and capacity faults with weighted probabilities based on the event rarity.
-- **Automatic Recovery** - Unhealthy nodes and GPUs autonomously return to service, allowing the cluster to settle into a degraded steady state rather than cascading to a total outage.
+### 📡 Live Health and Metrics
 
-### 🔗 Correlated Failures
+- **Health updates:** Node, GPU, and job status reaches the dashboard every five seconds by default. The last snapshot is marked **Stale** after 20 seconds without fresh data.
+- **GPU measurements:** Utilization, temperature, memory, and error counts update every ten seconds by default.
 
-- **Cause and Effect** - Seventeen rules link triggers to plausible downstream failures (i.e., a thermal event on a GPU causes an NCCL timeout for that node's job).
-- **Global Incident Tracing** - Every event in a failure cascade shares a single correlation ID, allowing reconstruction from any point in the chain.
-- **Bounded Cascades** - Strict depth and fan-out limits prevent a single trigger from spiraling into an unrealistic event storm.
+### 🔗 Failure Simulation and Incidents
 
-### ☸️ Real Kubernetes Execution
+- **Failure scenarios:** Nineteen failure modes cover nodes, GPUs, jobs, and capacity, with some occurring more often than others.
+- **Related failures:** Seventeen rules link triggers to downstream faults, such as an overheating GPU causing a job timeout. A shared incident ID connects the events.
+- **Controlled recovery:** Limits keep one failure from triggering too many events. Unhealthy nodes and GPUs can return to service automatically.
 
-- **Materialized Workloads** - Simulated running jbos map directly to real Kubernetes Jobs, labeled to reflect the simulated nodes they represent.
-- **Authentic Failure States** - An OOM kill occurs by breaching a container's memory limit, ensuring the kernel records the fault.
-- **Least-Privilege Identity** - The simulator's ServiceAccount is strictly scoped, holding only the namespaced Job, Pod, and exec permissions it needs to operate.
+### ⚙️ Real Kubernetes Execution
+
+- **Real Pods:** Scheduled jobs create lightweight Kubernetes Jobs and Pods, labeled with the simulated job and node they represent.
+- **Real outcomes:** Pods finish successfully, fail, or exceed their memory limit and are killed. GPU training remains simulated.
+- **Restricted access:** The simulator's account can create Jobs, inspect Pods, and run commands inside approved Pods in the `videre` namespace.
 
 ### 🔎 Failure and Capacity Analysis
 
-- **Root-Cause Records** - Every recorded failure includes its category, a root-cause tag, and a correlation ID tying it back to the original trigger.
-- **GPU Availability and Capacity** - Reported node/GPU health and utilization split GPUs into unavailable for new work, degraded, healthy idle, and healthy active. Pending jobs, draining/cordoned nodes, and recent queueing-delay events provide separate capacity indicators.
-- **Entity Drill-Down** - Any node, GPU, or job can be expanded to reveal its current state, historical failures, and metric trends.
+- **Failure records:** Each record includes a category, cause label, and shared incident ID.
+- **GPU availability:** Health and utilization group GPUs as unavailable for new work, degraded, healthy idle, or healthy active. Waiting jobs, nodes draining or blocking new work, and recent queueing delays provide separate capacity indicators.
+- **Detailed views:** Inspect a node, GPU, or job to see its state, failure history, and performance charts.
 
-### 📊 Observability Pipeline
+### 📊 Metrics and Logs
 
-- **Metrics Without a Collector** - Thirteen domain metrics are exposed on the backend's own endpoint and scraped directly by Prometheus.
-- **Log Aggregation** - Grafana Alloy ships container logs to Loki, queryable by namespace, pod, container, and application.
-- **Flat Disk Usage** - A three-day retention window governs Prometheus, Loki, Kafka, and Postgres, so storage plateaus instead of growing.
+- **Metrics:** Prometheus reads thirteen domain metrics directly from the backend.
+- **Logs:** Alloy collects container logs in Loki; Grafana lets you search by namespace, Pod, container, or application.
+- **History:** Prometheus, Loki, Kafka, and PostgreSQL use three-day history retention. Current cluster state and unresolved node/GPU failures are retained.
 
-### 🤖 AI Root-Cause Assistant
+### 🤖 AI Assistant
 
-- **Three-Source Context** - Database records, metric trends, and recent logs are gathered concurrently. If a data source is slow or missing, it is gracefully dropped and explicitly noted in the prompt.
-- **Related Failure Evidence** - Job diagnoses include assigned-node health, candidate GPU failures and shared incidents within the same cluster.
-- **Fingerprint Caching** - Selected entity and related health, placement and failure changes invalidate diagnoses. Ordinary telemetry changes use the existing 420-second cache TTL.
-- **Layered Quota Guards** - Per-minute and per-day limits, per client and globally, keep a publicly reachable endpoint inside the provider's tier.
+- **Suggested causes and next steps:** Gemini compares database state, recent metrics, logs, and related incidents. Missing context is flagged; related failures do not prove a cause or a job's exact GPU assignment.
+- **Cached diagnoses:** Answers are reused for up to seven minutes by default. Relevant health, placement, or failure changes stop reuse; routine telemetry updates do not.
+- **Request limits:** Per-minute and daily limits apply per client and globally.
 
-## 🏗️ Architecture
+<a id="architecture"></a>
+
+## 🧩 Architecture
 
 ### Components
 
@@ -104,9 +105,9 @@ flowchart LR
 
     subgraph windows["Windows 11 Host"]
         subgraph wsl["WSL2 (8 GB / 4 cores)"]
-            funnel["Tailscale Funnel<br/>TLS terminates here"]
+            funnel["Tailscale Funnel<br/>Handles HTTPS"]
 
-            subgraph k3s["k3s (videre namespace)"]
+            subgraph k3s["k3s cluster"]
                 traefik["Traefik"]
                 dash["Dashboard"]
                 api["Backend API"]
@@ -140,9 +141,9 @@ flowchart LR
     grafana -->|queries| loki
 ```
 
-- Everything runs on one machine. A Windows 11 laptop hosts a WSL2 distribution capped at 8 GB and 4 cores, and inside it a single-node k3s cluster runs every component as a Kubernetes workload.
-- Public traffic routes exclusively through Tailscale Funnel, which terminates TLS at the host and forwards plain HTTP to Traefik on port 80, so no inbound port is ever opened on the router or on Windows. 
-- A single FastAPI application handles REST and WebSocket traffic while concurrently running a Kafka consumer, cache refresh, and retention pruner as background tasks.
+- The application services run on one Windows 11 machine, inside Ubuntu 24.04 WSL2 limited to 8 GB RAM and four CPU cores.
+- Tailscale Funnel handles public HTTPS and forwards HTTP to Traefik on port 80. No inbound ports are opened on Windows or the router.
+- One FastAPI application handles REST and WebSocket requests, reads Kafka events, refreshes the cache, and removes old history.
 
 ### Data Flow
 
@@ -175,7 +176,7 @@ flowchart LR
     ai["AI Assistant"]
     gemini["Gemini"]
 
-    sim -->|"keyed per entity"| kafka
+    sim -->|"keyed messages"| kafka
     sim -->|"create Job, exec outcome"| k8s
     kafka --> consumer
     consumer -->|"state and failure records"| postgres
@@ -194,23 +195,28 @@ flowchart LR
     ai -->|"prompt"| gemini
 ```
 
-- The simulator publishes to four JSON Kafka topics and maps every simulated job to a real Kubernetes Pod. The backend consumes all four topics, persists current state and failure records to Postgres, and updates Prometheus gauges strictly after the database transaction commits. Concurrently, Alloy streams raw container logs directly to Loki. A background loop aggregates cluster health into a Redis snapshot every seconds seconds and streams it to WebSocket clients.
-- Each simulator restart creates a new run. Its first consumed event resets current health, closes superseded incidents and marks abandoned jobs FAILED with `simulation reset`; stored history follows existing retention. Backend-only restarts preserve the current run, and delayed old-run events are logged and ignored.
-- Topics use a stable routing key to preserve each entity's event order within its topic partition. The backend commits only the handled record's partition and next offset after successful persistence or a logged malformed-message rejection. Persistence failures reconnect and replay retained, uncommitted records. Postgres deduplicates append-only records with stable envelope `event_id` values and protects entity and assignment rows with primary/composite keys.
-- With a valid committed offset, failures resume there. A missing or invalid bookmark uses `earliest`, trading extra processing and possible repeated metric increments for recovery from retained history (configured for three days).
-- The AI assistant queries all three data stores concurrently. Postgres serves the structured state, Prometheus serves the metrics, and Loki serves the logs, allowing the model to align failure records, metric movement, and container log lines from the same window, tracing cascading symptoms back to their root causes.
+- The simulator sends node, GPU, job, and scheduling events through four Kafka topics (JSON message streams). Scheduled jobs also get real Kubernetes Pods.
+- The backend saves accepted events to PostgreSQL before updating metrics. It refreshes the Redis health snapshot and sends it to the dashboard every five seconds by default. Alloy sends container logs to Loki.
+- Restarting the simulator starts a new run: its first event resets health, closes old incidents, and marks unfinished jobs FAILED with `simulation reset`. Restarting only the backend preserves the run; older or conflicting runs are logged and skipped.
+- Within each topic, messages with the same key (usually a node or job ID) stay in order.
+- After a failure, reading resumes from saved Kafka progress; missing or invalid progress starts from the oldest retained message. Invalid messages are logged and skipped. Replayed `event_id` values prevent duplicate event records, but metrics may count events again. Kafka retains three days of messages.
 
-## 🚀 Running It Yourself
+<a id="running-it-yourself"></a>
 
-Videre is available on-demand and started manually. While the machine is on for normal daily use, the stack stays stopped and consumes no resources: k3s does not auto-start, and the WSL VM is not held up. The stack, and its public URL, are up only while a demo is explicitly running (see `docs/setup.md` for more information).
+## 🛠️ Running It Yourself
+
+Videre runs on demand. Start it manually; shutting down WSL takes the demo offline. Run commands from the repository root in Ubuntu unless stated otherwise. See [host setup](docs/setup.md) for WSL limits and Tailscale Funnel configuration.
 
 ### Prerequisites
 
-- **Linux** with `systemd`, tested on WSL2 Ubuntu 24.04, capped at 8 GB and 4 cores.
-- **[k3s](https://k3s.io/)** & `kubectl` for local cluster orchestration.
-- **[uv](https://docs.astral.sh/uv/)** for Python dependency management.
-- **Node.js 24** to build the dashboard image.
-- **Gemini API Key (Optional)** for AI assistant.
+- Linux with `systemd`; tested on WSL2 Ubuntu 24.04.
+- [k3s](https://k3s.io/), `kubectl`, and administrator cluster access.
+- Python 3.12 or later and [uv](https://docs.astral.sh/uv/) for Python development and database setup.
+- Node.js 24 for frontend development.
+- Tailscale Funnel configured for the public demo and its start script.
+- An optional Gemini API key with no billing account attached.
+
+For another host, update the public hostname in `scripts/demo-up.sh`, `k8s/grafana/30-deployment.yaml`, and `k8s/backend/10-configmap.yaml`.
 
 ### Local Development
 
@@ -221,13 +227,13 @@ uv run mypy              # strict type-checking
 uv run pytest            # unit tests
 ```
 
-CI migrates a disposable PostgreSQL 17.10 database and runs tests as `videre_app`. For local database tests, prepare a separate test database using [database setup](docs/setup.md#database-and-release-operations). Tests delete rows within a rolled-back transaction; never use production:
+Without `VIDERE_TEST_DATABASE_URL`, database integration tests are skipped. CI prepares disposable PostgreSQL 17.10 and tests as `videre_app`. For local tests, adapt the [migration and account setup](docs/setup.md#database-and-release-operations) to a separate test database. **Never use production:** tests delete rows inside a transaction that is rolled back.
 
 ```bash
 VIDERE_REQUIRE_DATABASE_TESTS=1 VIDERE_TEST_DATABASE_URL=postgresql+asyncpg://videre_app:test_password@localhost:5432/videre_test uv run pytest
 ```
 
-The dev server automatically proxies `/api` and `/grafana` to the live cluster via Traefik.
+For frontend development, keep the local cluster running at `127.0.0.1:80`. The development server forwards `/api` and `/grafana` to Traefik:
 
 ```bash
 cd frontend && npm ci && npm run dev
@@ -235,9 +241,15 @@ cd frontend && npm ci && npm run dev
 
 ### Deploying the Full Stack
 
-#### 1. Provision Secrets
+These steps are for a fresh installation. Start k3s and complete the first checkout and cluster verification block in [database setup](docs/setup.md#fresh-database-installation) before applying anything. Stop if the reviewed source or cluster target is wrong.
 
-These four secrets are excluded from Git. Create them manually in your cluster, or the database, backend, and Grafana pods stall in `CreateContainerConfigError`:
+#### 1. Create the Namespace and Secrets
+
+```bash
+kubectl apply -f k8s/namespace/00-namespace.yaml
+```
+
+Create these four Secrets in the `videre` namespace. Keep credentials out of Git. Missing Secrets or keys prevent the affected containers from starting:
 
 | Secret | Keys |
 |---|---|
@@ -246,9 +258,11 @@ These four secrets are excluded from Git. Create them manually in your cluster, 
 | `gemini-secret` | `GEMINI_API_KEY` |
 | `grafana-secret` | `admin-password` |
 
-#### 2. Apply Manifests
+Set `POSTGRES_APP_USER=videre_app`; its password must match the account created in step 3. To disable AI, still create `gemini-secret` with an empty `GEMINI_API_KEY`.
 
-Deploy the core kustomization alongside two one-time bootstrap manifests (for Kafka topic and Traefik configuration):
+#### 2. Apply Deployment Files
+
+Apply the stack, create Kafka topics, configure Traefik, and pause backend and simulator until the database is ready:
 
 ```bash
 kubectl apply -k k8s/
@@ -257,24 +271,39 @@ kubectl apply -f k8s/traefik/01-helmchartconfig.yaml
 kubectl -n videre scale deployment/backend deployment/simulator --replicas=0
 ```
 
-#### 3. Prepare Database Schema and Application Access
+#### 3. Prepare the Database
 
-Follow [database setup](docs/setup.md#database-and-release-operations) to migrate as `postgres`, create `videre_app` with `scripts/bootstrap-postgres.sql`, and verify access before restarting backend and simulator. In `postgres-app-secret`, set `POSTGRES_APP_USER=videre_app` and use the password assigned to that role.
+Follow [database setup](docs/setup.md#database-and-release-operations) to migrate as `postgres`, create `videre_app` with `scripts/bootstrap-postgres.sql`, and verify schema and permissions before restarting backend and simulator.
 
-CI updates images only. Apply schema and configuration changes manually from the reviewed release revision. A release succeeds only after deployment passes; image tags alone do not confirm success. The runbook covers compatibility and recovery.
+CI updates images only. Apply database and configuration changes manually from reviewed source. A successful deployment confirms a release; image tags alone do not. Use the linked guide for updates and recovery instead of reapplying the full stack.
 
-#### 4. Control the Demo
+#### 4. Start and Stop the Demo
+
+Start in Ubuntu:
 
 ```bash
 ./scripts/demo-up.sh     # starts k3s, awaits infrastructure, scales simulator, and verifies URL
+```
+
+Stop in Ubuntu:
+
+```bash
 ./scripts/demo-down.sh   # flushes in-flight events, then safely stops k3s
 ```
 
-## 📁 Repository Layout
+Then stop the remaining containers and release WSL memory in **Windows PowerShell**:
+
+```powershell
+wsl --shutdown
+```
+
+<a id="repository-layout"></a>
+
+## 🗂️ Repository Layout
 
 ```
-├── src/videre/         # Shared models and Kafka wire contract
-│   ├── simulator/      # Failure engine, telemetry, K8s materialization
+├── src/videre/         # Shared models and Kafka message definitions
+│   ├── simulator/      # Failure simulation, measurements, real Kubernetes Jobs
 │   ├── backend/        # FastAPI app, Kafka consumer, cache, metrics, AI
 │   └── database/       # SQLAlchemy models for Postgres
 ├── alembic/            # Database migrations
@@ -282,34 +311,40 @@ CI updates images only. Apply schema and configuration changes manually from the
 ├── k8s/                # Kubernetes manifests (applied via kubectl apply -k)
 ├── tests/              # Pytest suite for simulator and backend
 ├── scripts/            # Demo start/stop and CI deploy scripts
-└── docs/               # Additional operational and design reference
+└── docs/               # Detailed reference guides
 ```
 
-## 📚 Additional Documentation
+<a id="additional-documentation"></a>
+
+## 📖 Additional Documentation
 
 | Document | Covers |
 |---|---|
-| [docs/setup.md](docs/setup.md) | WSL2 limits, Tailscale routing, and demo lifecycle. |
-| [docs/materialization.md](docs/materialization.md) | How simulated jobs translate to real Pods with real kernel-level faults. |
-| [docs/kafka-schemas.md](docs/kafka-schemas.md) | Message envelopes, topics, and strict partition keys. |
-| [docs/metrics.md](docs/metrics.md) | A complete reference of every metric and its labels. |
-| [docs/load-testing.md](docs/load-testing.md) | Fixed-RPS benchmark commands, results and measurement limits. |
-| [docs/redis-keys.md](docs/redis-keys.md) | Key namespaces, TTLs, and collision prevention rules. |
-| [docs/ports.md](docs/ports.md) | Every internal cluster and external host port mapping. |
-| [.github/workflows/self-hosted.md](.github/workflows/self-hosted.md) | Runner rationale and least-privilege permission bounding. |
+| [docs/setup.md](docs/setup.md) | Host limits, public routing, start/stop, database setup, and release recovery |
+| [docs/materialization.md](docs/materialization.md) | Real Pod outcomes and Kubernetes permission limits |
+| [docs/kafka-schemas.md](docs/kafka-schemas.md) | Message fields, topics, ordering, and recovery |
+| [docs/metrics.md](docs/metrics.md) | Metric names, labels, and capacity counts |
+| [docs/load-testing.md](docs/load-testing.md) | Results, conditions, commands, and measurement limits |
+| [docs/redis-keys.md](docs/redis-keys.md) | Key formats, expiry, caching, and rate limits |
+| [docs/ports.md](docs/ports.md) | Cluster, container, local, and public ports |
+| [.github/workflows/self-hosted.md](.github/workflows/self-hosted.md) | Deployment pipeline, permissions, and retry rules |
 
-## 📜 License
+<a id="license"></a>
+
+## ⚖️ License
 
 Released under the [MIT License](LICENSE).
+
+<a id="author"></a>
 
 ## 👤 Author
 
 **Andy Li**
 
-- 🎓 Computer Science Student @ Georgia Institute of Technology
-- 💼 LinkedIn: [@andyli8](https://www.linkedin.com/in/andyli8/)
-- 🐙 GitHub: [@AndyDLi](https://github.com/AndyDLi)
-- 📧 Email: andy.dang.li@gmail.com
+- 🎓 Computer Science student at Georgia Institute of Technology
+- 🔗 LinkedIn: [@andyli8](https://www.linkedin.com/in/andyli8/)
+- 💻 GitHub: [@AndyDLi](https://github.com/AndyDLi)
+- ✉️ Email: [andy.dang.li@gmail.com](mailto:andy.dang.li@gmail.com)
 - 🌐 Portfolio: [andyli-portfolio.vercel.app](https://andyli-portfolio.vercel.app/)
 
 ---

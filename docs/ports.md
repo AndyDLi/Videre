@@ -2,39 +2,39 @@
 
 ## Cluster
 
-These ClusterIP Services in the `videre` namespace are reachable anywhere inside the cluster via standard DNS (`http://<name>:<port>`), but are isolated from the outside world.
+Inside the cluster, connect to `<name>.videre.svc.cluster.local:<port>` using the component's protocol. Kafka's headless Service points directly to its Pod; the others use internal Service IPs (ClusterIP). Public web access goes through Traefik.
 
 | Port | Component | Function |
 |---|---|---|
-| 80 | `frontend` | Standard HTTP bridge that forwards traffic to the container's unprivileged port 8080. |
-| 3000 | `grafana` | Visualization dashboard serving full monitoring UI and `/d-solo/...` embedded charts pulled into drill-down iframes. |
-| 3100 | `loki` | Two-way HTTP pipeline for Alloy to push logs and Grafana to query them. |
+| 80 | `frontend` | HTTP Service forwarding to container port 8080. |
+| 3000 | `grafana` | Dashboards and embedded `/d-solo/...` charts. |
+| 3100 | `loki` | Accepts Alloy logs and serves Grafana log queries. |
 | 5432 | `postgres` | Entity state, job history, failure records. |
 | 6379 | `redis` | Cluster-health cache, rate-limit counters, AI response cache. |
 | 8000 | `backend` | REST APIs, `/ws/cluster-health`, `/metrics` |
 | 9090 | `prometheus` | Stores metrics and serves the query API for Grafana. |
-| 9092 | `kafka` | Network socket where the Kafka server sits and listens for connections. |
+| 9092 | `kafka` | Kafka client connections. |
 
 ## Container
 
-These listeners run locally inside individual pods as the actual destination that ClusterIP Services route traffic to. They have no DNS name and can only be reached via their pod IP or `localhost`.
+These ports run inside Pods. Of these, only frontend port 8080 has a Service; reach the others through the Pod IP or `localhost` inside the Pod.
 
 | Port | Component | Function |
 |---|---|---|
-| 8080 | `frontend` | The Nginx web server, binded to 8080 to run securely as a non-root user. |
+| 8080 | `frontend` | Nginx web server running as a non-root user. |
 | 9093 | `kafka` | KRaft controller listener. |
 | 9096 | `loki` | Internal gRPC listener. |
 | 12345 | `alloy` | Log collector's HTTP server. |
 
 ## Local
 
-These ports run on local hardware to build, test, and control the cluster.
+These ports are used on the host for web routing, development, and cluster access.
 
 | Port | Component | Function |
 |---|---|---|
-| 80 | Traefik | Receives the HTTP traffic that Tailscale Funnel forwards from the public URL, then routes it to the right Kubernetes Service. |
-| 443 | Tailscale | Handles the secure incoming internet connection and passes it to Traefik on port 80, keeping Traefik's own secure port disabled so they do not fight for control. |
-| 6443 | k3s API server | Kubernetes control plane. |
+| 80 | Traefik | Routes HTTP traffic from Funnel to Kubernetes Services. |
+| 443 | Tailscale | Terminates HTTPS and forwards traffic to Traefik on port 80. Traefik's own HTTPS exposure is disabled to avoid a port conflict. |
+| 6443 | k3s API server | Kubernetes management API. |
 | 5173 | Vite dev server | The local dashboard from `npm run dev`. |
 | 3000 | Grafana port-forward | `kubectl -n videre port-forward svc/grafana 3000:3000`. |
 | 8000 | Backend port-forward | `kubectl -n videre port-forward svc/backend 8000:8000`. |
@@ -44,4 +44,4 @@ These ports run on local hardware to build, test, and control the cluster.
 
 | Port | Component | Function |
 |---|---|---|
-| 443 | Tailscale Funnel | The only public entry point. Receives HTTPS traffic from the internet and forwards it to Traefik on local port 80. |
+| 443 | Tailscale Funnel | Public HTTPS entry point; forwards to Traefik on local port 80. |
