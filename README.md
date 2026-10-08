@@ -16,9 +16,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyDLi/Videre/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/AndyDLi/Videre/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-**A dashboard for monitoring and investigating failures in a simulated GPU training cluster, with real Kubernetes job outcomes and AI explanations.**
-
-Videre simulates computers (nodes), graphics processing units (GPUs), and training jobs. Lightweight containers run on one real Kubernetes node; no GPU hardware is required.
+**A full-stack observability platform and operations console for simulated GPU training clusters, running lightweight containers on a real Kubernetes node, delivering live telemetry, job outcome tracking, and AI-assisted root-cause analysis.**
 
 [Architecture](#architecture) · [Report Bug](https://github.com/AndyDLi/Videre/issues) · [Request Feature](https://github.com/AndyDLi/Videre/issues)
 
