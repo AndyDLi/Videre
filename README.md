@@ -16,7 +16,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyDLi/Videre/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/AndyDLi/Videre/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-**A full-stack observability platform and operations console for simulated GPU training clusters, running lightweight containers on a real Kubernetes node, delivering live telemetry, job outcome tracking, and AI-assisted root-cause analysis.**
+**A full-stack observability platform for simulated GPU training clusters, running lightweight containers on a real Kubernetes node, delivering live telemetry, job outcome tracking, and AI-assisted root-cause analysis.**
 
 [Architecture](#architecture) · [Report Bug](https://github.com/AndyDLi/Videre/issues) · [Request Feature](https://github.com/AndyDLi/Videre/issues)
 
@@ -81,123 +81,31 @@ https://github.com/user-attachments/assets/3e13f436-e406-4b0c-831b-7bae66769ba8
 
 <a id="architecture"></a>
 
-## 🧩 Architecture
+## 🧩 Architecture [Diagrams](docs/diagrams/architecture.md)
 
-### Components
+### C4 Diagram
 
-```mermaid
----
-config:
-  themeVariables:
-    fontSize: 20px
-  flowchart:
-    padding: 22
-    nodeSpacing: 50
-    rankSpacing: 50
-    subGraphTitleMargin:
-      top: 20
-      bottom: 8
----
-flowchart LR
-    visitor(["Public Visitor"])
+<a href="docs/diagrams/C4%20Diagram.png"><img src="docs/diagrams/C4%20Diagram.png" alt="C4 Diagram" width="900"></a>
 
-    subgraph windows["Windows 11 Host"]
-        subgraph wsl["WSL2 (8 GB / 4 cores)"]
-            funnel["Tailscale Funnel<br/>Handles HTTPS"]
+### AI Diagnosis Sequence Diagram
 
-            subgraph k3s["k3s cluster"]
-                traefik["Traefik"]
-                dash["Dashboard"]
-                api["Backend API"]
-                sim["Simulator"]
-                grafana["Grafana"]
-                alloy["Alloy"]
-                kafka[("Kafka")]
-                postgres[("PostgreSQL")]
-                redis[("Redis")]
-                prometheus[("Prometheus")]
-                loki[("Loki")]
-            end
-        end
-    end
+<a href="docs/diagrams/AI%20Diagnosis%20Sequence%20Diagram.png"><img src="docs/diagrams/AI%20Diagnosis%20Sequence%20Diagram.png" alt="AI Diagnosis Sequence Diagram" width="900"></a>
 
-    gemini["Google Gemini"]
+### Telemetry Activity Diagram
 
-    visitor -->|HTTPS| funnel
-    funnel -->|"HTTP on 80"| traefik
-    traefik -->|/| dash
-    traefik -->|/api| api
-    traefik -->|/grafana| grafana
-    sim -->|publishes| kafka
-    api -->|consumes| kafka
-    api --> postgres
-    api --> redis
-    api -->|analysis| gemini
-    prometheus -->|scrapes| api
-    alloy -->|pushes logs| loki
-    grafana -->|queries| prometheus
-    grafana -->|queries| loki
-```
+<a href="docs/diagrams/Telemetry%20Activity%20Diagram.png"><img src="docs/diagrams/Telemetry%20Activity%20Diagram.png" alt="Telemetry Activity Diagram" width="900"></a>
 
-- The application services run on one Windows 11 machine, inside Ubuntu 24.04 WSL2 limited to 8 GB RAM and four CPU cores.
-- Tailscale Funnel handles public HTTPS and forwards HTTP to Traefik on port 80. No inbound ports are opened on Windows or the router.
-- One FastAPI application handles REST and WebSocket requests, reads Kafka events, refreshes the cache, and removes old history.
+### Job Lifecycle State Machine
 
-### Data Flow
+<a href="docs/diagrams/Job%20Lifecycle%20State%20Machine.png"><img src="docs/diagrams/Job%20Lifecycle%20State%20Machine.png" alt="Job Lifecycle State Machine" width="900"></a>
 
-```mermaid
----
-config:
-  themeVariables:
-    fontSize: 20px
-  flowchart:
-    padding: 22
-    nodeSpacing: 50
-    rankSpacing: 50
-    subGraphTitleMargin:
-      top: 20
-      bottom: 8
----
-flowchart LR
-    sim["Simulator<br/>1s tick"]
-    k8s["Kubernetes API<br/>real Jobs and Pods"]
-    kafka[("Kafka<br/>4 topics, 3-day retention")]
-    consumer["Kafka Consumer"]
-    postgres[("PostgreSQL")]
-    metrics["/metrics"]
-    prometheus[("Prometheus")]
-    refresh["Cache Refresh<br/>every 5s"]
-    redis[("Redis")]
-    api["REST + WebSocket"]
-    alloy["Alloy"]
-    loki[("Loki")]
-    ai["AI Assistant"]
-    gemini["Gemini"]
+### Entity-Relationship Diagram
 
-    sim -->|"keyed messages"| kafka
-    sim -->|"create Job, exec outcome"| k8s
-    kafka --> consumer
-    consumer -->|"state and failure records"| postgres
-    consumer -->|"gauges and counters"| metrics
-    metrics -->|"scrape 15s"| prometheus
-    alloy -->|"container logs"| loki
+<a href="docs/diagrams/Videre%20ERD.png"><img src="docs/diagrams/Videre%20ERD.png" alt="Entity-Relationship Diagram" width="900"></a>
 
-    postgres --> refresh
-    refresh -->|"snapshot"| redis
-    redis --> api
-    postgres --> api
+### Domain Class Diagram
 
-    postgres --> ai
-    prometheus --> ai
-    loki --> ai
-    ai -->|"prompt"| gemini
-```
-
-- The simulator sends node, GPU, job, and scheduling events through four Kafka topics (JSON message streams). Scheduled jobs also get real Kubernetes Pods.
-- The backend saves accepted events to PostgreSQL before updating metrics. It refreshes the Redis health snapshot and sends it to the dashboard every five seconds by default. Alloy sends container logs to Loki.
-- Restarting the simulator starts a new run: its first event resets health, closes old incidents, and marks unfinished jobs FAILED with `simulation reset`. Restarting only the backend preserves the run; older or conflicting runs are logged and skipped.
-- Within each topic, messages with the same key (usually a node or job ID) stay in order.
-- After a failure, reading resumes from saved Kafka progress; missing or invalid progress starts from the oldest retained message. Invalid messages are logged and skipped. Replayed `event_id` values prevent duplicate event records, but metrics may count events again. Kafka retains three days of messages.
+<a href="docs/diagrams/Videre%20Domain%20Class%20Diagram.png"><img src="docs/diagrams/Videre%20Domain%20Class%20Diagram.png" alt="Domain Class Diagram" width="900"></a>
 
 <a id="running-it-yourself"></a>
 
@@ -318,6 +226,7 @@ wsl --shutdown
 
 | Document | Covers |
 |---|---|
+| [Architecture Diagrams](docs/diagrams/architecture.md) | Six diagrams with explanations |
 | [docs/setup.md](docs/setup.md) | Host limits, public routing, start/stop, database setup, and release recovery |
 | [docs/materialization.md](docs/materialization.md) | Real Pod outcomes and Kubernetes permission limits |
 | [docs/kafka-schemas.md](docs/kafka-schemas.md) | Message fields, topics, ordering, and recovery |
@@ -339,7 +248,7 @@ Released under the [MIT License](LICENSE).
 
 **Andy Li**
 
-- 🎓 Computer Science student at Georgia Institute of Technology
+- 🎓 Computer Science Student at Georgia Institute of Technology
 - 🔗 LinkedIn: [@andyli8](https://www.linkedin.com/in/andyli8/)
 - 💻 GitHub: [@AndyDLi](https://github.com/AndyDLi)
 - ✉️ Email: [andy.dang.li@gmail.com](mailto:andy.dang.li@gmail.com)
