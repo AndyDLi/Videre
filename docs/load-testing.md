@@ -43,8 +43,6 @@ Other measurements:
 - **120 RPS:** The backend used 0.48 of its 0.5-core limit; PostgreSQL used 0.13 of 1 core; Redis used 0.005 of 0.5 cores, on average. Backend CPU throttling affected 92.5% of CPU periods.
 - **160 RPS:** The test tool could not start 7,613 requests (dropped arrivals), making capacity inconclusive. All actual responses were valid; other failed stages exceeded latency targets.
 
-Slower responses coincided with backend throttling and longer connection acquisition. This does not establish a database or pool defect.
-
 Full measurements, per-route samples, source/image identities, and report checksums: [result summary](load-testing-results.json).
 
 ## Test Conditions
