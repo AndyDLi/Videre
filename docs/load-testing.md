@@ -72,7 +72,6 @@ The test excludes disk-bound storage, Kafka ingestion, retention, WebSockets, mo
 - Request percentiles come from k6; service percentiles are histogram estimates. Sampling can miss brief peaks.
 - Query time covers execution/fetching. Connection acquisition includes waits, creation/checks, and held-connection lookup. Both query and Redis timing include backend scheduling.
 - Cached AI still queries PostgreSQL before Redis. Cache counters measure response-cache lookups only. These results do not measure natural cache hit rate or either store's maximum throughput.
-- AI generation was not tested. The historical 6.5-second figure remains unverified.
 
 ## Run the Test
 
